@@ -90,7 +90,9 @@ At four concurrent requests, the target model accepted 64.5% of prose drafts and
 
 ## Shared-pool prefill performance
 
-The shared FP8 preset uses the original gather path at the start of each prompt. After the first 8,192 positions, eligible chunks can split into two microbatches. They reuse the same index score and top-k scratch on the communication stream. Each layer gathers the request's compressed prefix KV once, appends the current rows in BF16 for attention, and writes the new rows to the request's FP8 DCP shard. For chunks of up to 32 new tokens following at least 65,536 cached or previously filled positions, the ranks score their local index keys, merge the global top-k, and combine their attention results. This path avoids gathering the full prefix KV.
+The shared FP8 preset splits eligible prompt chunks into two microbatches across the context. The sequence-parallel projections use the same GEMM as unsplit prefill, including when a rank owns only a small number of rows. The microbatches share index-score and top-k scratch on the communication stream. Each layer gathers the compressed prefix KV once and computes attention against the new rows in BF16. Residuals from both halves are reduced together in the original row order. This preserves the unsplit reduction shape and limits overlap between the halves.
+
+For up to 32 new tokens after at least 65,536 cached or previously filled positions, prefill gathers only the historical latent KV rows selected by the indexer's global top-k. Duplicate positions across the new queries are transmitted once. The ranks unpack the FP8 rows into their original positions and run the same BF16 attention and residual reduction as full-gather prefill. The current rows are consumed in BF16 and persisted in the shared FP8 pool.
 
 Each row compares the same cold prompt before and after the prefill change with DSpark enabled, four SM120 GPUs, DCP4 and a 728,888-token shared pool. Both runs returned the expected verification code. Throughput divides input tokens by the rank-0 prefill time.
 
@@ -124,6 +126,30 @@ The updated build passed the four-request and cross-slot prefix checks with abou
 The 8,192-token guard restored the original output on Q2 of the DuckDB SQL benchmark, a multi-turn comparison of Reseller and Internet sales. We replayed the same first request and used the same prompt-derived seed rule at temperature 0.1 with high reasoning effort. We checked both rows of the last SQL result against the reference. The original gather build and the guarded build confirmed the correct result in five turns and matched all five output-token hashes, both with DSpark and a warm prefix and with drafting disabled and zero cache hits. The build that enabled sequence-parallel prefill from the start confirmed an incorrect result in both modes. This check covers Q2.
 
 With the guard, the same 66,038- and 131,039-token cold prompts reached 2,689 and 2,581 tok/s, respectively. The follow-up that restored 66,016 tokens and filled the remaining 22 still took 0.11 s. All three requests returned the expected code with zero eager decode steps.
+
+The projection and sparse KV changes were tested in one process on the same weights and token IDs, against full-gather prefill with the same chunk boundaries. The logit error is the largest per-rank RMS difference. Layer numbers are zero-based.
+
+| Input | First layer with a different KV or index cache | Logit RMS difference | Highest-scoring token |
+| --- | ---: | ---: | --- |
+| Q2 system prefix, 718 tokens | None | 0 | Same |
+| Q2 first request, 789 tokens | None | 0 | Same |
+| Cold 4,096-token chunk | 75 | 0.0206 | Same |
+| Q2 with archive padding, 15,453 tokens | 75 | 0.0153 | Same |
+| 22 new tokens after 65,536 positions | 75 | 0.0354 | Same |
+
+For the 22-token extension, full-gather prefill took 0.300 s and sparse-gather prefill took 0.120 s. The focused CUDA Graph test also checks that compacting and unpacking selected FP8 rows yields the same BF16 bytes as full unpacking and preserves the current rows.
+
+The original five-turn Q2 replay returned both expected DuckDB rows and confirmed them with `results_ok` with DSpark and 718 cached tokens, and again with drafting disabled and zero cache hits. Both runs matched all four SQL hashes and all five generated token counts from the original gather build. The padded Q2 replay started at 15,453 tokens and confirmed both expected rows after three turns with zero cache hits. All runs used CUDA Graphs with zero eager decode steps.
+
+The same long-prompt API benchmark returned all three expected codes. Cold prefill throughput decreased with the combined residual reduction.
+
+| API request | Earlier 8,192-token guard | Projection and sparse KV fix |
+| --- | ---: | ---: |
+| 66,038 tokens, cold prefill | 2,689 tok/s | 1,792 tok/s |
+| 131,039 tokens, cold prefill | 2,581 tok/s | 1,686 tok/s |
+| 22 new tokens after 66,016 cached tokens | 0.11 s | 0.13 s |
+
+The final build captured 663 decode graphs on each rank. A four-request check observed four active streams, zero eager decode steps, and 2,583 prefix tokens restored across slots.
 
 ## Shared-pool validation without DSpark
 
