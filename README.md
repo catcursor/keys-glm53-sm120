@@ -90,7 +90,7 @@ At four concurrent requests, the target model accepted 64.5% of prose drafts and
 
 ## Shared-pool prefill performance
 
-The shared FP8 preset can split eligible prefill chunks into two microbatches throughout the model's context window. They reuse the same index score and top-k scratch on the communication stream. Each layer gathers the request's compressed prefix KV once, appends the current rows in BF16 for attention, and writes the new rows to the request's FP8 DCP shard. For chunks of up to 32 new tokens following at least 65,536 cached or previously filled positions, the ranks score their local index keys, merge the global top-k, and combine their attention results. This path avoids gathering the full prefix KV.
+The shared FP8 preset uses the original gather path at the start of each prompt. After the first 8,192 positions, eligible chunks can split into two microbatches. They reuse the same index score and top-k scratch on the communication stream. Each layer gathers the request's compressed prefix KV once, appends the current rows in BF16 for attention, and writes the new rows to the request's FP8 DCP shard. For chunks of up to 32 new tokens following at least 65,536 cached or previously filled positions, the ranks score their local index keys, merge the global top-k, and combine their attention results. This path avoids gathering the full prefix KV.
 
 Each row compares the same cold prompt before and after the prefill change with DSpark enabled, four SM120 GPUs, DCP4 and a 728,888-token shared pool. Both runs returned the expected verification code. Throughput divides input tokens by the rank-0 prefill time.
 
@@ -103,7 +103,7 @@ Each row compares the same cold prompt before and after the prefill change with 
 
 The initial sequence-parallel change passed the four-request and cross-slot prefix checks. A follow-up using the same system prefix restored 10,417 of 10,439 tokens.
 
-The next measurements compare the 65,536-token cutoff with sequence-parallel prefill enabled across the full pool. Both versions used DCP4, FP8 KV and DSpark on the same four GPUs. Each cell is a single run using the same synthetic prompt per version. All requests returned their expected code with zero eager decode steps.
+The next measurements compare the 65,536-token cutoff with the initial release of full-pool sequence-parallel prefill. Both versions used DCP4, FP8 KV and DSpark on the same four GPUs. Each cell is a single run using the same synthetic prompt per version. All requests returned their expected code with zero eager decode steps.
 
 | Cold input tokens | With cutoff (tok/s) | Full-pool SP (tok/s) | Change |
 | ---: | ---: | ---: | ---: |
@@ -120,6 +120,10 @@ The next measurements compare the 65,536-token cutoff with sequence-parallel pre
 Near the 728,888-token pool limit, a 700,036-token cold prompt took 564.69 s (1,240 tok/s). A follow-up restored 700,016 tokens, filled the remaining 20 in 0.11 s, and returned first content in 0.13 s. Both requests returned their expected code with zero eager decode steps.
 
 The updated build passed the four-request and cross-slot prefix checks with about 1.26 GiB free per GPU after CUDA Graph capture. Prefill throughput still decreases with context length as each chunk scores and gathers a longer prefix. The comparison tables use two DCP4 builds. A same-length DCP1 result is unavailable.
+
+The 8,192-token guard restored the original output on Q2 of the DuckDB SQL benchmark, a multi-turn comparison of Reseller and Internet sales. We replayed the same first request and used the same prompt-derived seed rule at temperature 0.1 with high reasoning effort. We checked both rows of the last SQL result against the reference. The original gather build and the guarded build confirmed the correct result in five turns and matched all five output-token hashes, both with DSpark and a warm prefix and with drafting disabled and zero cache hits. The build that enabled sequence-parallel prefill from the start confirmed an incorrect result in both modes. This check covers Q2.
+
+With the guard, the same 66,038- and 131,039-token cold prompts reached 2,689 and 2,581 tok/s, respectively. The follow-up that restored 66,016 tokens and filled the remaining 22 still took 0.11 s. All three requests returned the expected code with zero eager decode steps.
 
 ## Shared-pool validation without DSpark
 
