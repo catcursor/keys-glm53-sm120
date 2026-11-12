@@ -12,6 +12,7 @@ This project runs the **full Keys GLM-5.3 EXL3 2.75 BPW checkpoint** on one Linu
 | [Z.ai GLM-5.3](https://huggingface.co/zai-org/GLM-5.3), [drowzeys' gated Keys checkpoint](https://huggingface.co/drowzeys/keys-GLM-5.3-EXL3-2.75BPW-Abliterated), and [Turboderp's ExLlamaV3](https://github.com/turboderp-org/exllamav3) | Original model, the pinned mixed-bit checkpoint used in this port, and the EXL3 format, respectively. The test used the checkpoint's 6-bit output head. |
 | [NVIDIA CUDA and NCCL](https://developer.nvidia.com/nccl), [PyTorch](https://pytorch.org/), [Triton](https://github.com/triton-lang/triton), and [voipmonitor's CUDA image](https://hub.docker.com/r/voipmonitor/vllm) | Build/runtime environment. The local test image was derived from the pinned public image below. The service itself runs TensorFold's native binary. |
 | [DSpark ft2 at `681d43d`](https://huggingface.co/drowzeys/keys-GLM-5.3-speculator.dspark-ft2/tree/681d43db532b2f004d21c1d5ebe4aef5678d564f) | Speculative drafter for the shared FP8 KV pool. Each request has its own drafter state. |
+| [Local Inference Lab's DCP prefill design](https://github.com/local-inference-lab/vllm/pull/111) | Reference for combining split prefill queries with a transient gather of compressed KV. This port uses TensorFold's sequence-parallel pipeline. |
 | [LMCache](https://github.com/LMCache/LMCache) | Used in the separate `dcp4-fp8-lmcache` preset. The shared presets use GPU prefix reuse. |
 
 The public repository contains source, a patch, and synthetic test results. Model weights, container layers, and compiled GPU kernels are obtained separately under their respective licenses. See [NOTICE](NOTICE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for upstream attributions.
@@ -86,6 +87,21 @@ Both presets were measured on the same host and checkpoint with DCP4 and the sha
 | Code | 4 | 110.5 | 153.1 | +38.6% | 38.8–44.3 |
 
 At four concurrent requests, the target model accepted 64.5% of prose drafts and 82.5% of code drafts.
+
+## Shared-pool prefill performance
+
+For prompts of up to 65,536 tokens, the shared FP8 preset can split prefill into two microbatches. For each layer it gathers the request's compressed prefix KV once, appends the current rows in BF16 for attention, and writes the new rows to the request's FP8 DCP shard. Chunks with too few rows for sequence parallelism and prompts beyond the limit use the existing gathered prefill path.
+
+Each row compares the same cold prompt before and after the prefill change with DSpark enabled, four SM120 GPUs, DCP4 and a 728,888-token shared pool. Both runs returned the expected verification code. Throughput divides input tokens by the rank-0 prefill time.
+
+| Input tokens | Previous prefill (tok/s) | Sequence-parallel prefill (tok/s) | Change |
+| ---: | ---: | ---: | ---: |
+| 8,038 | 2,132 | 3,202 | +50.2% |
+| 16,042 | 2,116 | 3,202 | +51.3% |
+| 32,042 | 2,089 | 3,108 | +48.8% |
+| 64,040 | 2,011 | 2,906 | +44.5% |
+
+The revised preset passed the four-request and cross-slot prefix checks. A follow-up using the same system prefix restored 10,417 of 10,439 tokens. A 66,030-token prompt also returned the expected code through the existing gathered path. Each GPU had 1,362 MiB free after graph capture.
 
 ## Shared-pool validation without DSpark
 
