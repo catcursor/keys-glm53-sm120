@@ -86,6 +86,12 @@ PRESETS = {
         "build-dcp4-fp8-shared/native/bin/tensorfold-native", gather_prefill=True,
         decode_packed=True, fp8_kv=True, dspark=False, dcp_streams_reserve_gib=18, shared_kv=True,
     ),
+    "dcp4-fp8-shared-dspark": Preset(
+        "keys-glm53-sm120-dcp4-fp8-shared-dspark", ROOT / "rank-logs-dcp4-fp8-shared-dspark",
+        "aot-sm120-dcp4-fp8-shared-dspark/pack", 728888, 4, 4, 8192,
+        "build-dcp4-fp8-shared/native/bin/tensorfold-native", gather_prefill=True,
+        decode_packed=True, fp8_kv=True, dcp_streams_reserve_gib=18, shared_kv=True,
+    ),
 }
 
 
@@ -110,7 +116,7 @@ def preflight(preset=PRESETS["dcp1"]):
         raise RuntimeError("Missing target checkpoint shards")
     artifacts = [preset.native, f"{preset.aot}/aot.json"]
     if preset.dspark:
-        artifacts.append("dspark-ft2/model.safetensors")
+        artifacts.extend(("dspark-ft2/config.json", "dspark-ft2/model.safetensors"))
     for path in artifacts:
         if not (ROOT / path).is_file():
             raise RuntimeError(f"Missing port artifact: {path}")
@@ -228,6 +234,10 @@ def ready(preset=PRESETS["dcp1"]):
                 raise RuntimeError(f"Rank {rank} did not enable gathered prefill")
             if preset.fp8_kv and f"rank {rank}: E4M3 MLA KV" not in logs:
                 raise RuntimeError(f"Rank {rank} did not enable FP8 KV")
+            if preset.shared_kv and f"{preset.context} tokens in one shared KV pool" not in logs:
+                raise RuntimeError(f"Rank {rank} did not enable the shared KV pool")
+            if preset.dspark and f"glm53 rank {rank}: DSpark drafter " not in logs:
+                raise RuntimeError(f"Rank {rank} did not load DSpark")
             if rank == 0 and preset.lmcache_port and "LMCache: storing learned state payloads" not in logs:
                 raise RuntimeError("Rank 0 did not enable LMCache")
             if rank == 0 and f"DCP {preset.dcp}, {preset.parallel} concurrent stream" not in logs:

@@ -79,13 +79,18 @@ PY
         draft_args=()
         export TF_GLM53_FP8_KV=1
         ;;
-    dcp4-fp8-shared)
-        out=$work/aot-sm120-dcp4-fp8-4streams
+    dcp4-fp8-shared|dcp4-fp8-shared-dspark)
         tool=$work/build-dcp4-fp8-shared/bin/tf-glm53-generate
         context=728889
         parallel=4
-        dcp=4
-        draft_args=()
+        # DCP4 prefill also writes a rank-local BF16 cache. Enumerate DCP1 and DCP4 kernels.
+        dcp=0
+        if [[ $1 == dcp4-fp8-shared-dspark ]]; then
+            out=$work/aot-sm120-dcp4-fp8-shared-dspark
+        else
+            out=$work/aot-sm120-dcp4-fp8-4streams
+            draft_args=()
+        fi
         templates=(--template "$ref" --template "$root/ref-dcp4")
         export TF_GLM53_FP8_KV=1
         ;;

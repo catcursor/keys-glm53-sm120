@@ -11,7 +11,8 @@ This project runs the **full Keys GLM-5.3 EXL3 2.75 BPW checkpoint** on one Linu
 | [drowzeys' four-DGX-Spark deployment](https://github.com/drowzeys/keys-GLM-5.3-EXL3-2.75BPW-MixedK-Ablit-MLX-Serve-4-DGXSparks) and its [TensorFold TP4 base recipe](https://github.com/drowzeys/keys-TensorFold-GLM-5.3-TP4-4x-DGX-Spark) | Reference for the four-rank setup and launch/tile metadata. The asset script fetches the metadata from the pinned Spark base image; it builds fresh SM120 cubins. |
 | [Z.ai GLM-5.3](https://huggingface.co/zai-org/GLM-5.3), [drowzeys' gated Keys checkpoint](https://huggingface.co/drowzeys/keys-GLM-5.3-EXL3-2.75BPW-Abliterated), and [Turboderp's ExLlamaV3](https://github.com/turboderp-org/exllamav3) | Original model, the pinned mixed-bit checkpoint used in this port, and the EXL3 format, respectively. The test used the checkpoint's 6-bit output head. |
 | [NVIDIA CUDA and NCCL](https://developer.nvidia.com/nccl), [PyTorch](https://pytorch.org/), [Triton](https://github.com/triton-lang/triton), and [voipmonitor's CUDA image](https://hub.docker.com/r/voipmonitor/vllm) | Build/runtime environment. The local test image was derived from the pinned public image below. The service itself runs TensorFold's native binary. |
-| [DSpark ft2](https://huggingface.co/drowzeys/keys-GLM-5.3-speculator.dspark-ft2) and [LMCache](https://github.com/LMCache/LMCache) | Used in separate experiments. The shared-pool run below used GPU prefix reuse and had speculative decoding and LMCache disabled. |
+| [DSpark ft2 at `681d43d`](https://huggingface.co/drowzeys/keys-GLM-5.3-speculator.dspark-ft2/tree/681d43db532b2f004d21c1d5ebe4aef5678d564f) | Speculative drafter for the shared FP8 KV pool. Each request has its own drafter state. |
+| [LMCache](https://github.com/LMCache/LMCache) | Used in the separate `dcp4-fp8-lmcache` preset. The shared presets use GPU prefix reuse. |
 
 The public repository contains source, a patch, and synthetic test results. Model weights, container layers, and compiled GPU kernels are obtained separately under their respective licenses. See [NOTICE](NOTICE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for upstream attributions.
 
@@ -21,6 +22,7 @@ The public repository contains source, a patch, and synthetic test results. Mode
 - DCP4 shards the KV cache across the four GPUs. Each MLA row has 512 E4M3 values, four FP32 scales, and 64 BF16 RoPE values. Index keys remain BF16.
 - A request reserves its tokenized input plus its requested maximum output. The reservation is released when the request finishes. Up to four requests run when their reservations fit; a request waits if the remaining token budget or contiguous range is too small. A single request can reserve the whole pool.
 - Decode uses CUDA Graphs. GPU prefix checkpoints can be reused across stream slots. Reusing a region evicts overlapping idle checkpoints.
+- The DSpark preset verifies drafts from up to four requests in one target-model batch. With four streams, the verification window can hold up to 32 rows and each stream can propose up to seven draft tokens per round.
 
 ## Reproduce on Linux
 
@@ -39,6 +41,7 @@ hf download drowzeys/keys-GLM-5.3-EXL3-2.75BPW-Abliterated \
 bash bootstrap-tensorfold.sh
 python3 -B prepare-assets.py reference
 python3 -B prepare-assets.py templates
+python3 -B prepare-assets.py drafter
 
 curl -fLO https://ziglang.org/download/0.17.0/zig-x86_64-linux-0.17.0.tar.xz
 printf '%s  %s\n' \
@@ -54,10 +57,10 @@ docker run --rm --gpus '"device=0"' --ipc=host \
     bash /port/build-sm120.sh /port
     python3 -B /port/TensorFold/tools/glm53/patch_fused_dcp_rows.py \
       /port/python-reference/src/tensorfold/families/glm_moe_dsa/cuda/fused.py
-    bash /port/compile-aot.sh dcp4-fp8-shared
+    bash /port/compile-aot.sh dcp4-fp8-shared-dspark
   '
 
-python3 -B launch_sm120.py start --preset dcp4-fp8-shared
+python3 -B launch_sm120.py start --preset dcp4-fp8-shared-dspark
 curl --fail http://127.0.0.1:18992/v1/models
 ```
 
@@ -65,11 +68,26 @@ The kernel sweep must report zero missing variants. The launcher waits for all f
 
 ```bash
 python3 -B check_fp8_four_streams.py \
-  --rank-log rank-logs-dcp4-fp8-shared/rank-0.log \
+  --rank-log rank-logs-dcp4-fp8-shared-dspark/rank-0.log \
   --no-round-profile --shared-context 728888
 ```
 
-## Measured run
+## DSpark validation and decode performance
+
+On the four SM120 GPUs, the DSpark preset exposed the full 728,888-token shared pool and captured 663 CUDA Graphs per rank. The AOT coverage check resolved all 306 launch requirements. Four overlapping requests returned their own verification codes, and a separate test restored a 2,583-token prefix across slots. After startup each GPU had 2,702 MiB free.
+
+Both presets were measured on the same host and checkpoint with DCP4 and the shared FP8 KV pool. Each result is one batch with short prompts (92–117 tokens) and 2,048 visible output tokens per request at temperature 0 with thinking disabled. Aggregate decode throughput is total output tokens divided by the time from the earliest first content to the latest last content across the batch. Each four-request batch generated 8,192 tokens. No requests queued and the decode logs reported zero eager steps.
+
+| Workload | Concurrent requests | Without DSpark (tok/s) | With DSpark (tok/s) | Change | With DSpark per request (tok/s) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Prose | 1 | 47.4 | 65.7 | +38.7% | — |
+| Prose | 4 | 111.4 | 115.6 | +3.7% | 29.0–38.3 |
+| Code | 1 | 47.2 | 96.7 | +104.7% | — |
+| Code | 4 | 110.5 | 153.1 | +38.6% | 38.8–44.3 |
+
+At four concurrent requests, the target model accepted 64.5% of prose drafts and 82.5% of code drafts.
+
+## Shared-pool validation without DSpark
 
 | Check | Result |
 | --- | --- |
