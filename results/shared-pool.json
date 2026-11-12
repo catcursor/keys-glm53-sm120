@@ -1,0 +1,73 @@
+{
+  "hardware": {
+    "accelerators": 4,
+    "model": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+    "compute_capability": "12.0",
+    "memory_total_mib_per_gpu": 97887,
+    "driver": "615.71.09"
+  },
+  "runtime": {
+    "cuda": "13.2.1",
+    "nccl": "2.30.4",
+    "torch": "2.12.0+cu132",
+    "triton": "3.7.0",
+    "zig": "0.17.0",
+    "tensor_parallel": 4,
+    "decode_context_parallel": 4,
+    "shared_tokens": 728888,
+    "kv_gib_per_gpu": 9.6,
+    "used_mib_per_gpu": 85194,
+    "free_mib_per_gpu": 12148,
+    "graphs_per_gpu": 80,
+    "speculative_decoding": false,
+    "lmcache": false
+  },
+  "four_request_smoke": {
+    "peak_running": 4,
+    "prompt_tokens": [
+      75,
+      237,
+      3444,
+      5082
+    ],
+    "completion_tokens": [
+      306,
+      308,
+      307,
+      308
+    ],
+    "graph_replays": [
+      305,
+      307,
+      306,
+      307
+    ],
+    "eager_steps": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "expected_code_correct": [
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "cross_slot_cached_tokens": 2583,
+  "long_prompt": {
+    "actual_input_tokens": 195032,
+    "reserved_tokens": 728888,
+    "completion_tokens": 9,
+    "prefill_seconds": 116.3,
+    "queued_then_admitted": true,
+    "expected_code_correct": true
+  },
+  "build_checks": {
+    "tests_passed": 115,
+    "tests_total": 115,
+    "aot_variants_checked": 254,
+    "aot_variants_missing": 0
+  }
+}

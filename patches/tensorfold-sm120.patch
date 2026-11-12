@@ -1,0 +1,1851 @@
+diff --git a/tools/glm53/sweep_aot.py b/tools/glm53/sweep_aot.py
+index 7eea79e70cca77e4492a59bb35c49de062c8c201..c85541ddb78480bf04a40ee1a7e4f8cd64890071 100644
+--- a/tools/glm53/sweep_aot.py
++++ b/tools/glm53/sweep_aot.py
+@@ -46,6 +46,13 @@ MODULES = {
+     "_group_sums": "tensorfold.families.glm5_next.cuda.qmm",
+     "_gemm": "tensorfold.cuda.exl3.prefill",
+     "_select_keys": "tensorfold.families.glm_moe_dsa.cuda.topk",
++    "_merge_lse_packet": "dcp4_merge_lse_packet",
++    "_kv_write_fp8": "dcp4_fp8_kv",
++    "_kv_write_fp8_rows": "dcp4_fp8_kv",
++    "_pack_kv_fp8": "dcp4_fp8_kv",
++    "_unpack_kv_fp8": "dcp4_fp8_kv",
++    "_attn_dcp_fp8": "dcp4_fp8_kv",
++    "_attn_dcp_fp8_rows": "dcp4_fp8_kv",
+     # Phase 4: the drafters (cuda_draft.zig's launches)
+     "_embed_b16": "tensorfold.families.glm5_next.cuda.glue",
+     "_swiglu": "tensorfold.families.glm5_next.cuda.glue",
+@@ -60,7 +67,13 @@ MODULES = {
+ FUSED = "tensorfold.families.glm_moe_dsa.cuda.fused"
+ # a function no reference run ever launched takes its floats' fp64 values and unnamed constexprs from the captured
+ # variants of the function it was derived from (patch_fused_dcp_rows.py: _attn_dcp_rows is _attn_dcp per row)
+-TEMPLATE_OF = {"_attn_dcp_rows": "_attn_dcp"}
++TEMPLATE_OF = {
++    "_attn_dcp_rows": "_attn_dcp",
++    "_attn_dcp_fp8": "_attn_dcp",
++    "_attn_dcp_fp8_rows": "_attn_dcp",
++    "_kv_write_fp8": "_kv_write",
++    "_kv_write_fp8_rows": "_kv_write",
++}
+ DTYPES = {"*bf16": "bfloat16", "*fp16": "float16", "*fp32": "float32", "*i32": "int32", "*i64": "int64",
+           "*u8": "uint8", "*i8": "int8", "*u32": "uint32", "*i16": "int16"}
+ 
+diff --git a/zig/src/families/glm_moe_dsa/cuda_coverage.zig b/zig/src/families/glm_moe_dsa/cuda_coverage.zig
+index c136eb52553849249d49c925b3cb79d64572dfa1..6c0e3d1888316e669bc22821a693638f3deeb0a9 100644
+--- a/zig/src/families/glm_moe_dsa/cuda_coverage.zig
++++ b/zig/src/families/glm_moe_dsa/cuda_coverage.zig
+@@ -54,6 +54,8 @@ pub const Space = struct {
+     capacity: usize,
+     /// DCP degrees to cover (1 and/or world)
+     dcps: []const usize,
++    dcp_decode_a2a: bool = false,
++    fp8_kv: bool = false,
+     /// SwiGLU widths (dense MLP and shared expert gate outputs, every rank)
+     widths: []const usize,
+     /// (k, n) of every EXL3 linear of every rank (the prompt GEMM's shapes)
+@@ -86,6 +88,12 @@ pub fn enumerate(p: *aot.Probe, sp: Space) !void {
+     try selects(t, sp);
+     for (1..sp.rows_windows + 1) |R| try rowsWindow(t, sp, R);
+     for (sp.drafters) |ds| try draft.enumerate(p, ds);
++    if (sp.fp8_kv) {
++        try t.packKvFp8(A, A, 4 * sp.cfg.latentWidth(), 8);
++        for ([_]usize{ 1, 2, 16 }) |n| {
++            for ([_]usize{ 1, 2, 16 }) |pad| try t.unpackKvFp8(A, A, n, pad, 4);
++        }
++    }
+     if (sp.streams > 1) for (sp.drafters) |ds| try mdraft.enumerate(p, ds, sp.streams);
+ }
+ 
+@@ -110,6 +118,7 @@ fn window(t: tri.Tri, sp: Space, R: usize) !void {
+     for (sp.dcps) |dcp| {
+         for (0..ranksOf(dcp)) |rank| {
+             try t.kvWriteDcp(A, sp.kva_n, A, A, A, A, c.eps, R, m, dcp, rank);
++            if (sp.fp8_kv and dcp == 4) try t.kvWriteFp8(A, sp.kva_n, A, A, A, A, c.eps, R, dcp, rank);
+             try t.ikWriteDcp(A, A, A, A, A, A, R, c.index_dim, c.rope, dcp, rank);
+         }
+     }
+@@ -126,7 +135,9 @@ fn window(t: tri.Tri, sp: Space, R: usize) !void {
+             const nch = @max(1, m.topk / tl.chk);
+             for (0..dcp) |rank| {
+                 try t.attnDcp(A, A, A, A, A, A, A, A, R, m, dcp, rank, tl);
++                if (sp.fp8_kv and dcp == 4) try t.attnDcpFp8(A, A, A, A, A, A, A, A, R, m, dcp, rank, tl);
+                 try t.mergeLse(A, A, A, A, A, R, dcp, m, nch);
++                if (sp.dcp_decode_a2a and R <= max_window_rows) try t.mergeLsePacket(A, A, A, A, A, R, dcp, m, nch);
+                 for ([_]bool{ true, false }) |small| {
+                     const ex = dcpm.exchange(small, dcp, rank, R, m.heads, m.lw);
+                     try t.dcpCombine(A + ex.o0 * 2, A + ex.l0 * 4, A, R, ex.ss, ex.ssl, m, dcp);
+@@ -172,9 +183,14 @@ fn rowsWindow(t: tri.Tri, sp: Space, R: usize) !void {
+         // _attn_dcp_rows; _merge_lse, _dcp_combine and the candidates' top keys are a one-stream window's (`window`,
+         // `selects`: nothing in them knows a position)
+         for (0..dcp) |rank| {
+-            try t.kvWriteRowsDcp(A, sp.kva_n, A, A, A, A, A, c.eps, R, m, dcp, rank);
+             try t.ikWriteRowsDcp(A, A, A, A, A, A, A, R, c.index_dim, c.rope, dcp, rank);
+-            try t.attnDcpRows(A, A, A, A, A, A, A, A, A, R, m, dcp, rank, tri.attn_decode);
++            if (sp.fp8_kv and dcp == 4) {
++                try t.kvWriteFp8Rows(A, sp.kva_n, A, A, A, A, A, c.eps, R, dcp, rank);
++                try t.attnDcpFp8Rows(A, A, A, A, A, A, A, A, A, R, m, dcp, rank, tri.attn_decode);
++            } else {
++                try t.kvWriteRowsDcp(A, sp.kva_n, A, A, A, A, A, c.eps, R, m, dcp, rank);
++                try t.attnDcpRows(A, A, A, A, A, A, A, A, A, R, m, dcp, rank, tri.attn_decode);
++            }
+             var T: usize = 2 * K;
+             while (T <= top) : (T *= 2) try t.indexScoresRowsDcp(A, A, A, A, A, A, dcpm.localCols(T, dcp), 0, R, c.index_heads, c.index_dim, dcp, rank);
+         }
+@@ -285,7 +301,7 @@ test "every Triton function cuda_triton.zig launches is reached, a 41-row window
+         .{ .kind = .dspark, .D = 6144, .hd = 64, .H = 16, .KV = 16, .I = 3072, .layers = 3, .ntaps = 5, .block = 8, .top_k = 64, .V = c.vocab / 4, .vocab_off = 0, .eps = 1e-5, .window = 2048, .causal = true, .world = 4, .theta = 8e6, .mask_id = 154856 },
+         .{ .kind = .dflash, .D = 6144, .hd = 128, .H = 16, .KV = 2, .I = 3072, .layers = 6, .ntaps = 6, .block = 8, .top_k = 16, .V = c.vocab / 4, .vocab_off = 0, .rsel = 256, .gs = 16, .eps = 1e-5, .window = 2047, .causal = false, .world = 4, .theta = 1e6, .mask_id = 154856 },
+     };
+-    const sp: Space = .{ .cfg = c, .world = 4, .heads = c.heads / 4, .vocab_part = c.vocab / 4, .kva_n = 640, .max_rows = 160, .capacity = 4096, .dcps = &.{ 1, 4 }, .widths = &.{ 3072, 512 }, .gemms = &gemms, .drafters = &drafters };
++    const sp: Space = .{ .cfg = c, .world = 4, .heads = c.heads / 4, .vocab_part = c.vocab / 4, .kva_n = 640, .max_rows = 160, .capacity = 4096, .dcps = &.{ 1, 4 }, .dcp_decode_a2a = true, .fp8_kv = true, .widths = &.{ 3072, 512 }, .gemms = &gemms, .drafters = &drafters };
+     try enumerate(&p, sp);
+     // the concurrent drafters' launches (_dconv_seg / _dattn_seg) exist only with streams > 1
+     var sp4 = sp;
+@@ -297,10 +313,17 @@ test "every Triton function cuda_triton.zig launches is reached, a 41-row window
+     var sp4d = sp4;
+     sp4d.dcps = &.{4};
+     sp4d.capacity = 250_003;
++    sp4d.fp8_kv = false;
++    try enumerate(&p, sp4d);
++    sp4d.fp8_kv = true;
+     try enumerate(&p, sp4d);
+     var rows_dcp: usize = 0;
++    var fp8_writers: usize = 0;
++    var fp8_readers: usize = 0;
+     for (p.needs.values()) |n| {
+         if (std.mem.eql(u8, n.function, "_attn_dcp_rows")) rows_dcp += 1;
++        if (std.mem.eql(u8, n.function, "_kv_write_fp8_rows")) fp8_writers += 1;
++        if (std.mem.eql(u8, n.function, "_attn_dcp_fp8_rows")) fp8_readers += 1;
+         if (!std.mem.eql(u8, n.function, "_kv_write")) continue;
+         var rows = false;
+         var dcp4 = false;
+@@ -311,6 +334,7 @@ test "every Triton function cuda_triton.zig launches is reached, a 41-row window
+         if (rows and dcp4) rows_dcp += 1;
+     }
+     try std.testing.expect(rows_dcp >= 8); // a variant a rank of each, at least
++    try std.testing.expect(fp8_writers >= 4 and fp8_readers >= 4);
+     // the function names in cuda_triton.zig's launches: t.run("_name", ...)
+     const src = @embedFile("cuda_triton.zig");
+     var seen: usize = 0;
+diff --git a/zig/src/families/glm_moe_dsa/cuda_engine.zig b/zig/src/families/glm_moe_dsa/cuda_engine.zig
+index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e39d93eec886deea63714c62c74752739b282328 100644
+--- a/zig/src/families/glm_moe_dsa/cuda_engine.zig
++++ b/zig/src/families/glm_moe_dsa/cuda_engine.zig
+@@ -92,6 +92,7 @@ pub fn parseHcas(text: []const u8, out: *[2][]const u8) [][]const u8 {
+ /// reads (`fromEnv`); every rank must be started with the same ones (checked at the rendezvous).
+ pub const Options = struct {
+     rank: usize = 0,
++    device: c_int = 0,
+     world: usize = world_default,
+     master: []const u8 = "127.0.0.1:29581",
+     model: []const u8 = "",
+@@ -119,6 +120,12 @@ pub const Options = struct {
+     prompt_rows: usize = 8192,
+     prompt_rows_short: usize = 4096,
+     prompt_sp: bool = true,
++    dcp_prefill_gather: bool = false,
++    dcp_short_kv: bool = false,
++    fp8_kv: bool = false,
++    shared_kv: bool = false,
++    dcp_decode_packed: bool = false,
++    dcp_decode_a2a: bool = false,
+     experts: []const u8 = "shared",
+     pe_det: []const u8 = "slots16",
+     unpack_mb: usize = 384,
+@@ -164,6 +171,7 @@ pub const Options = struct {
+     pub fn fromEnv(model: []const u8, context: usize) !Options {
+         var o: Options = .{ .model = model, .context = context };
+         o.rank = try envInt(usize, "TF_GLM53_RANK", 0);
++        o.device = try envInt(c_int, "TF_GLM53_DEVICE", 0);
+         o.world = try envInt(usize, "TF_GLM53_WORLD", world_default);
+         o.master = env("TF_GLM53_MASTER") orelse o.master;
+         o.aot = env("TF_GLM53_AOT") orelse env("TENSORFOLD_CUDA_KERNELS") orelse "";
+@@ -189,6 +197,12 @@ pub const Options = struct {
+         o.prompt_rows = try envInt(usize, "TF_GLM53_PROMPT_ROWS", o.prompt_rows);
+         o.prompt_rows_short = try envInt(usize, "TF_GLM53_PROMPT_ROWS_SHORT", o.prompt_rows_short);
+         o.prompt_sp = try envFlag("TF_GLM53_PROMPT_SP", true);
++        o.dcp_prefill_gather = try envFlag("TF_GLM53_DCP_PREFILL_GATHER", false);
++        o.dcp_short_kv = try envFlag("TF_GLM53_DCP_SHORT_KV", false);
++        o.fp8_kv = try envFlag("TF_GLM53_FP8_KV", false);
++        o.shared_kv = try envFlag("TF_GLM53_SHARED_KV", false);
++        o.dcp_decode_packed = try envFlag("TF_GLM53_DCP_DECODE_PACKED", false);
++        o.dcp_decode_a2a = try envFlag("TF_GLM53_DCP_DECODE_A2A", false);
+         o.experts = env("TF_GLM53_EXPERTS") orelse o.experts;
+         o.pe_det = env("TF_GLM53_PE_DET") orelse env("TF_EXL3_PROMPT_DET") orelse o.pe_det;
+         o.unpack_mb = try envInt(usize, "TF_GLM53_UNPACK_MB", o.unpack_mb);
+@@ -274,6 +288,12 @@ fn settingsDigest(o: Options, dcp: usize, drafts: u64) u64 {
+     if (o.parallel > 1) o.multi_set.digest(&h);
+     const shape = [_]usize{ o.world, o.context, o.k, o.draft_vocab, o.mtp_reuse, @intFromBool(o.graphs), @intFromBool(o.prewarm), @intFromBool(o.roce), o.prompt_rows, o.prompt_rows_short, @intFromBool(o.prompt_sp), o.unpack_mb, @intFromBool(o.multi_select), @intFromBool(o.device_cands), @intFromBool(o.mtp_dense), dcp, @intFromBool(o.roce_health), @intFromBool(o.reuse.on), o.reuse.gap, o.reuse.stride, o.reuse.entries, @intFromBool(o.reuse.loose), @intFromFloat(o.l2pf_mb * 1024) };
+     h.update(std.mem.asBytes(&shape));
++    if (o.dcp_prefill_gather) h.update("prefill_gather");
++    if (o.dcp_short_kv) h.update("short_kv");
++    if (o.fp8_kv) h.update("kv_fp8_e4m3_128");
++    if (o.shared_kv) h.update("shared_kv");
++    if (o.dcp_decode_packed) h.update("decode_packed");
++    if (o.dcp_decode_a2a) h.update("decode_a2a");
+     for ([_][]const u8{ o.experts, o.pe_det, o.side, o.l2pf }) |t| {
+         h.update(t);
+         h.update("|");
+@@ -318,6 +338,7 @@ pub const Boot = struct {
+     l2pf: ?dec.L2pf = null,
+     sp: ?prompt.Sp = null,
+     fwd: fw.Forward, // the sequence-parallel chunk points at it (Sp.main); the Runner holds a copy
++    prefill_fwd: fw.Forward = undefined,
+     r: rn.Runner,
+     // Phase 4: the drafters' configs (read and checked before anything loads), their tap plan, the drafters, the
+     // default draft mode
+@@ -377,8 +398,9 @@ pub const Boot = struct {
+         if (!shared and !std.mem.eql(u8, o.experts, "tf")) return error.UnsupportedExperts;
+         b.driver = try cuda.Driver.open();
+         b.stage = 1;
+-        b.ctx = try cuda.Context.init(&b.driver, 0);
++        b.ctx = try cuda.Context.init(&b.driver, o.device);
+         b.stage = 2;
++        std.log.info("glm53 rank {d}: CUDA device {d}, sm_{d}", .{ o.rank, o.device, try b.ctx.capability() });
+         const master = try cuda.rendezvous.parseMaster(o.master);
+         b.lib = try cuda.nccl.Library.openPath(o.nccl_lib);
+         b.stage = 3;
+@@ -505,13 +527,28 @@ pub const Boot = struct {
+         }
+         b.fwd = .{ .w = &b.w, .k = &b.k, .s = b.stream, .inv = b.inv.ptr, .comm = &b.comm, .fast = b.fast, .ring = true, .wide = &b.main_wide, .shared_experts = shared, .pe_det16 = det16, .side = if (b.side) |*x| x else null, .l2pf = if (b.l2pf) |*x| x else null, .multi_select = o.multi_select, .prof = null, .mtp_dense = if (b.mtp_dense) |*x| x else null, .dcp = b.dcp, .taps = try fw.Taps.of(&b.plan) };
+         if (o.prompt_sp and o.world > 1 and b.dcp == 1) b.sp = try prompt.Sp.init(&b.driver, &b.fwd, b.side_stream, &b.side_wide);
++        if (o.prompt_sp and o.world > 1 and o.dcp_prefill_gather and b.dcp > 1) {
++            b.prefill_fwd = b.fwd;
++            b.prefill_fwd.dcp = 1;
++            b.sp = try prompt.Sp.init(&b.driver, &b.prefill_fwd, b.side_stream, &b.side_wide);
++        }
++        b.fwd.dcp_decode_packed = o.dcp_decode_packed;
++        b.fwd.dcp_decode_a2a = o.dcp_decode_a2a;
++        if (o.fp8_kv and (b.dcp != 4 or o.k != 0 or !o.dcp_prefill_gather or b.cfg.kv_lora != 512 or b.cfg.rope != 64))
++            return error.UnsupportedFp8KvConfiguration;
++        b.fwd.fp8_kv = o.fp8_kv;
+         b.stage = 17;
+         const capacity = o.context + o.k + 1; // Glm53Engine: Runner(limit + k + 1)
+         try b.checkCacheFits(capacity);
+         // --parallel N: N slots of the caches; copy drafts are one stream's (Runner: slots == 1)
+         const copy_set: copies.Settings = if (o.parallel > 1) .{ .on = false, .match = 0, .most = 0 } else o.copy;
+-        b.r = try rn.Runner.init(gpa, io, &b.driver, b.fwd, capacity, .{ .k = o.k, .graphs = o.graphs, .window = 128, .reuse = o.mtp_reuse, .served = true, .prompt_rows = o.prompt_rows, .prompt_rows_short = o.prompt_rows_short, .prompt_sp = o.prompt_sp, .roce_health = o.roce_health, .sp = if (b.sp) |*x| x else null, .device_cands = o.device_cands, .dcp = b.dcp, .verify_rows = o.verify_rows, .draft_rows = if (b.dspark_cfg) |c| c.block + 1 else 0, .copy = copy_set, .slots = o.parallel });
++        b.r = try rn.Runner.init(gpa, io, &b.driver, b.fwd, capacity, .{ .k = o.k, .graphs = o.graphs, .window = 128, .reuse = o.mtp_reuse, .served = true, .prompt_rows = o.prompt_rows, .prompt_rows_short = o.prompt_rows_short, .prompt_sp = o.prompt_sp, .dcp_prefill_gather = o.dcp_prefill_gather, .dcp_short_kv = o.dcp_short_kv, .roce_health = o.roce_health, .sp = if (b.sp) |*x| x else null, .device_cands = o.device_cands, .dcp = b.dcp, .verify_rows = o.verify_rows, .draft_rows = if (b.dspark_cfg) |c| c.block + 1 else 0, .copy = copy_set, .slots = o.parallel, .shared_kv = o.shared_kv });
+         b.stage = 18;
++        if (o.dcp_prefill_gather) std.log.info("glm53 rank {d}: prefill gathers compressed KV, with up to {d} rows a chunk", .{ o.rank, o.prompt_rows });
++        if (b.r.replicated_ids.len > 0) std.log.info("glm53 rank {d}: sequence-parallel prefill stages up to {d} tokens before sharding KV", .{ o.rank, b.r.replicated_ids.len });
++        if (o.dcp_short_kv) std.log.info("glm53 rank {d}: short DCP decode gathers compressed KV and keeps the query heads local", .{o.rank});
++        if (o.fp8_kv) std.log.info("glm53 rank {d}: E4M3 MLA KV, BF16 RoPE and index keys ({d} bytes per MLA row)", .{ o.rank, fw.State.fp8_row_bytes });
++        if (o.dcp_decode_packed) std.log.info("glm53 rank {d}: DCP decode exchanges partial attention and LSE together ({s})", .{ o.rank, if (o.dcp_decode_a2a) "all-to-all" else "all-gather" });
+         // Phase 4: the drafters on every rank (each its heads / MLP share), attached to the runner before its prewarm
+         if (b.dflash_cfg != null) {
+             b.dflash_dr = try draft.Drafter.load(gpa, io, &b.driver, &b.k, b.stream, &b.w, o.dflash, .dflash, b.dspark_set, o.dflash_set);
+@@ -528,7 +565,11 @@ pub const Boot = struct {
+         if (o.parallel > 1) {
+             b.multi = try multi.Multi.init(gpa, io, &b.r, o.parallel, o.multi_set, o.rank == 0);
+             const per = b.multi.?.bytesPerStream();
+-            std.log.info("glm53 rank {d}: {d} concurrent streams (MTP drafts {d}, windows up to {d} rows), {d:.2} GiB of caches each ({d} tokens); draft cut {d} from {d} streams", .{ o.rank, o.parallel, o.k, b.multi.?.rows, @as(f64, @floatFromInt(per)) / (1 << 30), o.context, o.multi_set.draft_cut, o.multi_set.cut_streams });
++            if (o.shared_kv) {
++                std.log.info("glm53 rank {d}: {d} concurrent streams, {d} tokens in one shared KV pool ({d:.2} GiB on this rank)", .{ o.rank, o.parallel, o.context, @as(f64, @floatFromInt(per)) / (1 << 30) });
++            } else {
++                std.log.info("glm53 rank {d}: {d} concurrent streams (MTP drafts {d}, windows up to {d} rows), {d:.2} GiB of caches each ({d} tokens); draft cut {d} from {d} streams", .{ o.rank, o.parallel, o.k, b.multi.?.rows, @as(f64, @floatFromInt(per)) / (1 << 30), o.context, o.multi_set.draft_cut, o.multi_set.cut_streams });
++            }
+             if (b.multi.?.frows > 0) std.log.info("glm53 rank {d}: concurrent drafters: DFlash2 {s}, DSpark {s}; up to {d} drafts a stream, confidence floor {d} from {d} streams; requests draft with {t}", .{ o.rank, if (b.dflash_dr != null) "on" else "off", if (b.dspark_dr != null) "on" else "off", b.multi.?.frows - 1, o.multi_set.cutDFlash(), o.multi_set.cut_streams, b.mode });
+         }
+         b.stage = 19;
+@@ -551,7 +592,7 @@ pub const Boot = struct {
+     fn checkCacheFits(b: *Boot, capacity: usize) !void {
+         const mem = try b.ctx.memInfo();
+         const reserve_gb: f64 = if (std.c.getenv("TF_GLM53_CACHE_RESERVE_GB")) |v| (std.fmt.parseFloat(f64, std.mem.span(v)) catch 6) else 6;
+-        const row: u64 = b.cfg.layers * b.cfg.latentWidth() * 2;
++        const row: u64 = b.cfg.layers * (if (b.o.fp8_kv) fw.State.fp8_row_bytes else b.cfg.latentWidth() * 2);
+         const local: u64 = dcpm.localCapacity(capacity, b.dcp);
+         if (b.o.parallel > 1 and b.dcp > 1) {
+             // several streams under DCP: the whole of what the slots allocate (index keys and the MTP layer too),
+@@ -562,10 +603,13 @@ pub const Boot = struct {
+             // ran a node down to 4 GB with 24 GiB left here, so four streams are refused until that is measured smaller.
+             const sgb_default: f64 = dcpm.streams_reserve_gb * @as(f64, @floatFromInt(b.o.parallel)) / 2;
+             const sgb: f64 = if (std.c.getenv("TF_GLM53_DCP_STREAMS_RESERVE_GB")) |v| (std.fmt.parseFloat(f64, std.mem.span(v)) catch sgb_default) else sgb_default;
+-            const per: u64 = fw.State.bytesForDcp(&b.w, capacity, b.dcp);
+-            const sf = dcpm.streamsFit(per, b.o.parallel, mem.free, sgb);
++            const kv_row_bytes = if (b.o.fp8_kv) fw.State.fp8_row_bytes else b.cfg.latentWidth() * 2;
++            const cache_capacity = if (b.o.shared_kv) capacity + b.dcp * b.o.parallel * 2 else capacity;
++            const cache_slots = if (b.o.shared_kv) 1 else b.o.parallel;
++            const per: u64 = fw.State.bytesForDcpWithKv(&b.w, cache_capacity, b.dcp, kv_row_bytes);
++            const sf = dcpm.streamsFit(per, cache_slots, mem.free, sgb);
+             const gib_f: f64 = 1 << 30;
+-            std.log.info("glm53 rank {d}: {d} streams x {d} tokens, cache split over {d} ranks: {d:.1} GiB of caches here, {d:.1} GiB free, {d:.1} GiB left after them (reserve {d:.1})", .{ b.o.rank, b.o.parallel, capacity, b.dcp, @as(f64, @floatFromInt(sf.need)) / gib_f, @as(f64, @floatFromInt(sf.free)) / gib_f, (@as(f64, @floatFromInt(sf.free)) - @as(f64, @floatFromInt(sf.need))) / gib_f, sgb });
++            std.log.info("glm53 rank {d}: {d} KV allocations x {d} tokens, cache split over {d} ranks: {d:.1} GiB of caches here, {d:.1} GiB free, {d:.1} GiB left after them (reserve {d:.1})", .{ b.o.rank, cache_slots, capacity, b.dcp, @as(f64, @floatFromInt(sf.need)) / gib_f, @as(f64, @floatFromInt(sf.free)) / gib_f, (@as(f64, @floatFromInt(sf.free)) - @as(f64, @floatFromInt(sf.need))) / gib_f, sgb });
+             if (!sf.ok) {
+                 std.log.err("context {d} x {d} streams needs {d:.1} GiB of caches on this rank and {d:.1} GiB is free; {d:.1} GiB must stay free (TF_GLM53_DCP_STREAMS_RESERVE_GB): use --context <= {d} with --parallel {d}, TF_GLM53_MTP_DENSE=0, or fewer streams", .{ capacity, b.o.parallel, @as(f64, @floatFromInt(sf.need)) / gib_f, @as(f64, @floatFromInt(sf.free)) / gib_f, sgb, sf.fit_tokens(capacity), b.o.parallel });
+                 return error.CacheDoesNotFit;
+@@ -621,6 +665,7 @@ pub const Boot = struct {
+ /// verify window of N x (k + 1) rows must be a decode window. Phase 4c: DSpark and DFlash2 draft concurrent streams
+ /// too (cuda_mdraft.zig; the drafters' own check, N blocks in one pass, follows once their configs are read).
+ pub fn checkParallel(o: Options, dcp: usize) !void {
++    if (o.shared_kv and (!o.fp8_kv or dcp != 4 or o.parallel < 2 or o.k != 0)) return error.UnsupportedSharedKvConfiguration;
+     if (o.parallel <= 1) return;
+     const quiet = @import("builtin").is_test;
+     if (dcp > 1) {
+@@ -629,7 +674,8 @@ pub fn checkParallel(o: Options, dcp: usize) !void {
+             return error.ParallelNeedsDcpOff;
+         }
+         // nothing larger than the one-stream shape has ever been held: N streams share its tokens
+-        if (!dcpm.streamsTokensOk(o.context, o.parallel)) {
++        const cache_slots = if (o.shared_kv) 1 else o.parallel;
++        if (!dcpm.streamsTokensOk(o.context, cache_slots)) {
+             if (!quiet) std.log.err("{d} streams x {d} tokens = {d} tokens of cache: at most {d} in all with the cache split over the ranks (--context <= {d} at --parallel {d})", .{ o.parallel, o.context, o.parallel * o.context, dcpm.streams_tokens, dcpm.streams_tokens / o.parallel, o.parallel });
+             return error.DcpStreamsTooManyTokens;
+         }
+@@ -870,9 +916,33 @@ pub const Session = struct {
+     const file_version: u32 = 1;
+     pub const Head = extern struct { magic: u32, version: u32, rank: u32, world: u32, dcp: u32, n: u32, key: u64, identity: u64, views: u32, carry: u32, bytes: u64 };
+ 
++    const StateFile = struct {
++        fd: c_int,
++
++        fn writeAll(f: StateFile, bytes: []const u8) !void {
++            try putAll(f.fd, bytes);
++        }
++
++        fn readAt(f: StateFile, bytes: []u8, at: u64) !void {
++            try getAll(f.fd, bytes, at);
++        }
++    };
++
+     /// This rank's shard of kept state `e` (its rows - saved, or still live - and its carry) to `file` through a
+     /// temporary file renamed into place; returns the file's bytes. The rows go through a pinned staging buffer.
+     pub fn writeState(s: *Session, e: *reuse.Kept, file: [:0]const u8, key: u64, identity: u64) !u64 {
++        var tmp_buf: [1200]u8 = undefined;
++        const tmp = try std.fmt.bufPrintSentinel(&tmp_buf, "{s}.part", .{file}, 0);
++        const fd = std.c.open(tmp, .{ .ACCMODE = .WRONLY, .CREAT = true, .TRUNC = true }, @as(std.c.mode_t, 0o600));
++        if (fd < 0) return error.StateWrite;
++        defer _ = std.c.close(fd);
++        errdefer _ = std.c.unlink(tmp);
++        const bytes = try s.writeStateTo(e, StateFile{ .fd = fd }, key, identity);
++        if (std.c.fsync(fd) != 0 or std.c.rename(tmp, file) != 0) return error.StateWrite;
++        return bytes;
++    }
++
++    pub fn writeStateTo(s: *Session, e: *reuse.Kept, writer: anytype, key: u64, identity: u64) !u64 {
+         const pr = s.reuse orelse return error.ReuseOff;
+         const b = s.boot;
+         const D = b.cfg.hidden;
+@@ -892,41 +962,27 @@ pub const Session = struct {
+         var total: u64 = 0;
+         for (vs) |v| total += v.row * v.rows;
+         const head: Head = .{ .magic = file_magic, .version = file_version, .rank = @intCast(b.o.rank), .world = @intCast(b.o.world), .dcp = @intCast(b.dcp), .n = @intCast(e.n()), .key = key, .identity = identity, .views = @intCast(vs.len), .carry = @intCast(D * 2), .bytes = total };
+-        var tmp_buf: [1200]u8 = undefined;
+-        const tmp = try std.fmt.bufPrintSentinel(&tmp_buf, "{s}.part", .{file}, 0);
+-        const fd = std.c.open(tmp, .{ .ACCMODE = .WRONLY, .CREAT = true, .TRUNC = true }, @as(std.c.mode_t, 0o600));
+-        if (fd < 0) return error.StateWrite;
+-        var ok = false;
+-        defer if (!ok) {
+-            _ = std.c.unlink(tmp);
+-        };
+-        {
+-            defer _ = std.c.close(fd);
+-            try putAll(fd, std.mem.asBytes(&head));
+-            for (vs) |v| {
+-                const sz = [2]u64{ v.row, v.rows };
+-                try putAll(fd, std.mem.sliceAsBytes(&sz));
+-            }
+-            try b.r.f.s.synchronize(); // the copies into the saved rows / the live rows' last chunk have landed
+-            var stage = try cuda.HostBuffer.alloc(&b.driver, 64 << 20);
+-            defer stage.free();
+-            for (vs, 0..) |v, i| {
+-                const src = if (src_offs) |offs| src_base + offs[i] else v.ptr;
+-                var done: usize = 0;
+-                const n = v.row * v.rows;
+-                while (done < n) {
+-                    const part = @min(n - done, stage.bytes.len);
+-                    try b.driver.check(b.driver.api.cuMemcpyDtoH_v2(stage.bytes.ptr, src + done, part), "cuMemcpyDtoH");
+-                    try putAll(fd, stage.bytes[0..part]);
+-                    done += part;
+-                }
++        try writer.writeAll(std.mem.asBytes(&head));
++        for (vs) |v| {
++            const sz = [2]u64{ v.row, v.rows };
++            try writer.writeAll(std.mem.sliceAsBytes(&sz));
++        }
++        try b.r.f.s.synchronize();
++        var stage = try cuda.HostBuffer.alloc(&b.driver, 4 << 20);
++        defer stage.free();
++        for (vs, 0..) |v, i| {
++            const src = if (src_offs) |offs| src_base + offs[i] else v.ptr;
++            var done: usize = 0;
++            const n = v.row * v.rows;
++            while (done < n) {
++                const part = @min(n - done, stage.bytes.len);
++                try b.driver.check(b.driver.api.cuMemcpyDtoH_v2(stage.bytes.ptr, src + done, part), "cuMemcpyDtoH");
++                try writer.writeAll(stage.bytes[0..part]);
++                done += part;
+             }
+-            try b.driver.check(b.driver.api.cuMemcpyDtoH_v2(stage.bytes.ptr, e.carry.ptr, D * 2), "cuMemcpyDtoH");
+-            try putAll(fd, stage.bytes[0 .. D * 2]);
+-            if (std.c.fsync(fd) != 0) return error.StateWrite;
+         }
+-        if (std.c.rename(tmp, file) != 0) return error.StateWrite;
+-        ok = true;
++        try b.driver.check(b.driver.api.cuMemcpyDtoH_v2(stage.bytes.ptr, e.carry.ptr, D * 2), "cuMemcpyDtoH");
++        try writer.writeAll(stage.bytes[0 .. D * 2]);
+         return @sizeOf(Head) + vs.len * 16 + total + D * 2;
+     }
+ 
+@@ -934,14 +990,18 @@ pub const Session = struct {
+     /// the caller remembers it once every rank has read its own). A file of another rank, world, DCP, size, key or
+     /// identity is refused.
+     pub fn readState(s: *Session, ids: []const u32, file: [:0]const u8, key: u64, identity: u64) !*reuse.Kept {
+-        const pr = s.reuse orelse return error.ReuseOff;
+-        const b = s.boot;
+-        const D = b.cfg.hidden;
+         const fd = std.c.open(file, .{ .ACCMODE = .RDONLY }, @as(std.c.mode_t, 0));
+         if (fd < 0) return error.StateRead;
+         defer _ = std.c.close(fd);
++        return s.readStateFrom(ids, StateFile{ .fd = fd }, key, identity);
++    }
++
++    pub fn readStateFrom(s: *Session, ids: []const u32, reader: anytype, key: u64, identity: u64) !*reuse.Kept {
++        const pr = s.reuse orelse return error.ReuseOff;
++        const b = s.boot;
++        const D = b.cfg.hidden;
+         var head: Head = undefined;
+-        try getAll(fd, std.mem.asBytes(&head), 0);
++        try reader.readAt(std.mem.asBytes(&head), 0);
+         const vs = try pr.views(ids.len);
+         defer s.gpa.free(vs);
+         var total: u64 = 0;
+@@ -949,14 +1009,14 @@ pub const Session = struct {
+         if (head.magic != file_magic or head.version != file_version or head.rank != b.o.rank or head.world != b.o.world or head.dcp != b.dcp or head.n != ids.len or head.key != key or head.identity != identity or head.views != vs.len or head.carry != D * 2 or head.bytes != total) return error.StateRefused;
+         const sizes = try s.gpa.alloc([2]u64, vs.len);
+         defer s.gpa.free(sizes);
+-        try getAll(fd, std.mem.sliceAsBytes(sizes), @sizeOf(Head));
++        try reader.readAt(std.mem.sliceAsBytes(sizes), @sizeOf(Head));
+         for (vs, sizes) |v, z| if (z[0] != v.row or z[1] != v.rows) return error.StateRefused;
+-        var stage = try cuda.HostBuffer.alloc(&b.driver, 64 << 20);
++        var stage = try cuda.HostBuffer.alloc(&b.driver, 4 << 20);
+         defer stage.free();
+         const data_at: u64 = @sizeOf(Head) + vs.len * 16;
+         const Fill = struct {
+             d: *const cuda.Driver,
+-            fd: c_int,
++            input: @TypeOf(reader),
+             at: u64,
+             stage: []u8,
+             pub fn fill(f: *const @This(), views: []const reuse.View, offs: []const usize, base: u64) !void {
+@@ -966,7 +1026,7 @@ pub const Session = struct {
+                     var done: usize = 0;
+                     while (done < n) {
+                         const part = @min(n - done, f.stage.len);
+-                        try getAll(f.fd, f.stage[0..part], pos);
++                        try f.input.readAt(f.stage[0..part], pos);
+                         try f.d.check(f.d.api.cuMemcpyHtoD_v2(base + off + done, f.stage.ptr, part), "cuMemcpyHtoD");
+                         done += part;
+                         pos += part;
+@@ -974,10 +1034,10 @@ pub const Session = struct {
+                 }
+             }
+         };
+-        const filler: Fill = .{ .d = &b.driver, .fd = fd, .at = data_at, .stage = stage.bytes };
++        const filler: Fill = .{ .d = &b.driver, .input = reader, .at = data_at, .stage = stage.bytes };
+         const carry = try s.gpa.alloc(u8, D * 2);
+         defer s.gpa.free(carry);
+-        try getAll(fd, carry, data_at + total);
++        try reader.readAt(carry, data_at + total);
+         try b.r.f.s.synchronize(); // pooled buffers may still be read by queued copies
+         return pr.adopt(ids, carry, &filler);
+     }
+@@ -1082,6 +1142,7 @@ test "--parallel refusals: DCP, a window wider than a decode window; the drafter
+     // TF_GLM53_DCP_STREAMS: several streams with the cache split, up to the one-stream shape's tokens in all
+     try checkParallel(.{ .parallel = 4, .context = 250_000, .dcp_streams = true, .dspark = "/x" }, 4);
+     try checkParallel(.{ .parallel = 2, .context = 500_000, .dcp_streams = true, .dspark = "/x" }, 4);
++    try checkParallel(.{ .parallel = 4, .context = 728888, .dcp_streams = true, .fp8_kv = true, .shared_kv = true, .k = 0 }, 4);
+     try std.testing.expectError(error.DcpStreamsTooManyTokens, checkParallel(.{ .parallel = 4, .context = 500_000, .dcp_streams = true }, 4));
+     try std.testing.expectError(error.DcpStreamsTooManyTokens, checkParallel(.{ .parallel = 2, .context = 1_000_000, .dcp_streams = true }, 4));
+     try std.testing.expectError(error.WindowTooWide, checkParallel(.{ .parallel = 16, .k = 2, .context = 60_000, .dcp_streams = true }, 4));
+diff --git a/zig/src/families/glm_moe_dsa/cuda_forward.zig b/zig/src/families/glm_moe_dsa/cuda_forward.zig
+index 432122c2ec29d0894237123ec9d8f8b338026d9f..8d5bab7c6e919cf966489278bba9b31c3ae62249 100644
+--- a/zig/src/families/glm_moe_dsa/cuda_forward.zig
++++ b/zig/src/families/glm_moe_dsa/cuda_forward.zig
+@@ -88,6 +88,9 @@ pub const BufOpts = struct {
+     /// every rank's heads, the query / partial exchange buffers, the selection's candidates; the score scratch holds a
+     /// rank's ceil(score_cols / dcp) slots
+     dcp: usize = 1,
++    /// Cache and index scratch for prefill with local queries and a gathered context.
++    prefill_dcp: usize = 1,
++    short_kv_rows: usize = 0,
+     /// Phase 4: fused.Buffers.taps - the drafters' tap layers' output rows, [rows, taps * D] bf16 (0: no drafter)
+     taps: usize = 0,
+ };
+@@ -195,6 +198,10 @@ pub const Buffers = struct {
+     xs_big: ?kern.ExpertScratch = null,
+     // Phase 3b: decode context parallelism (fused.Buffers with w.dcp > 1; the exchange buffers 0 at DCP 1)
+     dcp: usize = 1,
++    prefill_gather: u64 = 0,
++    prefill_keys: u64 = 0,
++    prefill_index: u64 = 0,
++    prefill_selection: u64 = 0,
+     qpack: u64 = 0, // bf16 [rows, H, lw + rd]: this rank's absorbed queries, packed
+     qall: u64 = 0, // bf16 [G, rows, H, lw + rd]: every rank's
+     osend: u64 = 0, // bf16 [G, rows, H, lw]: normalized partials by destination rank
+@@ -251,10 +258,10 @@ pub const Buffers = struct {
+         if (G > 1) {
+             b.qpack = try b.alloc(rows * H * (lw + rd) * 2);
+             b.qall = try b.alloc(G * rows * H * (lw + rd) * 2);
+-            b.osend = try b.alloc(G * rows * H * lw * 2);
++            b.osend = try b.alloc(G * rows * H * (lw * 2 + 4));
+             b.lsend = try b.alloc(G * rows * H * 4);
+             const fan: usize = if (rows <= b.small) G else 1; // decode windows exchange by all-gather (G x the bytes)
+-            b.orecv = try b.alloc(fan * G * rows * H * lw * 2);
++            b.orecv = try b.alloc(fan * G * rows * H * (lw * 2 + 4));
+             b.lrecv = try b.alloc(fan * G * rows * H * 4);
+             b.cnt = try b.alloc(rows * 4);
+             const sel_rows = @min(rows, 128);
+@@ -272,7 +279,20 @@ pub const Buffers = struct {
+         b.iw = try b.alloc(rows * c.index_heads * 4);
+         b.iq = try b.alloc(rows * c.index_heads * c.index_dim * 2);
+         b.sc = try b.alloc(@min(rows, 128) * dcpm.cdiv(score_cols, G) * 8); // Buffers.score_len
+-        b.tok = try b.alloc(rows * c.index_topk * 4);
++        const token_rows = std.mem.alignForward(usize, rows, opts.prefill_dcp * 128);
++        b.tok = try b.alloc((if (opts.prefill_dcp > 1) token_rows else rows) * c.index_topk * 4);
++        if (opts.prefill_dcp > 1) {
++            const padded_keys = dcpm.cdiv(score_cols, opts.prefill_dcp) * opts.prefill_dcp;
++            b.prefill_gather = try b.alloc(padded_keys * @max(c.latentWidth(), c.index_dim) * 2);
++            b.prefill_keys = try b.alloc(score_cols * c.latentWidth() * 2);
++            b.prefill_index = try b.alloc(score_cols * c.index_dim * 2);
++            b.prefill_selection = try b.alloc(token_rows * c.index_topk * 4);
++        }
++        if (opts.short_kv_rows > 0) {
++            const bytes = opts.short_kv_rows * c.latentWidth() * 2;
++            b.prefill_gather = try b.alloc(bytes);
++            b.prefill_keys = try b.alloc(bytes);
++        }
+         const width = @max(c.dense_width, c.expert_width * @max(c.shared_experts, 1)) / w.world;
+         b.g = try b.alloc(rows * width * 2);
+         b.u = try b.alloc(rows * width * 2);
+@@ -459,6 +479,9 @@ pub const Buffers = struct {
+ /// DCP (Phase 3b): position p on rank p % dcp at local row p // dcp; every cache holds `local` = ceil(capacity / dcp)
+ /// + 1 rows (capacity + 1 at DCP 1).
+ pub const State = struct {
++    /// E4M3 latents, four FP32 scales, and the original BF16 RoPE key.
++    pub const fp8_row_bytes = 656;
++    kv_row_bytes: usize = 0,
+     d: *const cuda.Driver,
+     gpa: std.mem.Allocator,
+     capacity: usize,
+@@ -490,15 +513,19 @@ pub const State = struct {
+     /// the caches sharded (slots > 1, dcp > 1) are this port's own (docs/glm53-dcp-streams.md): each stream's shard of
+     /// this rank back to back, stream s's position p at row s * local + p / dcp on rank p % dcp.
+     pub fn initSlots(gpa: std.mem.Allocator, d: *const cuda.Driver, w: *const W.Weights, capacity: usize, dcp: usize, slots: usize) !State {
++        return initSlotsWithKv(gpa, d, w, capacity, dcp, slots, w.config.latentWidth() * 2);
++    }
++
++    pub fn initSlotsWithKv(gpa: std.mem.Allocator, d: *const cuda.Driver, w: *const W.Weights, capacity: usize, dcp: usize, slots: usize, kv_row_bytes: usize) !State {
+         const c = w.config;
+         if (dcp == 0 or (dcp > 1 and dcp != w.world)) return error.Invalid;
+         if (slots == 0) return error.Invalid;
+         const rows = dcpm.localCapacity(capacity, dcp);
+         const all = rows * slots;
+-        var s: State = .{ .d = d, .gpa = gpa, .capacity = capacity, .dcp = dcp, .local = rows, .slots = slots, .kc = try gpa.alloc(u64, w.layers.len), .ic = try gpa.alloc(u64, w.layers.len), .pos = 0 };
++        var s: State = .{ .d = d, .gpa = gpa, .capacity = capacity, .dcp = dcp, .local = rows, .slots = slots, .kc = try gpa.alloc(u64, w.layers.len), .ic = try gpa.alloc(u64, w.layers.len), .pos = 0, .kv_row_bytes = kv_row_bytes };
+         errdefer s.deinit();
+         for (w.layers, 0..) |*L, i| {
+-            s.kc[i] = try s.zeros(all * c.latentWidth() * 2);
++            s.kc[i] = try s.zeros(all * kv_row_bytes);
+             s.ic[i] = if (L.indexer != null) try s.zeros(all * c.index_dim * 2) else 0;
+         }
+         s.pos = try s.zeros(4);
+@@ -514,9 +541,6 @@ pub const State = struct {
+     /// the whole State (each window sets them before it runs). Free with `freeView`.
+     pub fn slotView(s: *const State, w: *const W.Weights, slot: usize) !State {
+         if (slot >= s.slots) return error.Invalid;
+-        const c = w.config;
+-        const lat = s.local * c.latentWidth() * 2;
+-        const idx = s.local * c.index_dim * 2;
+         var v = s.*;
+         v.view = true;
+         v.mem = .empty;
+@@ -524,13 +548,22 @@ pub const State = struct {
+         v.kc = try s.gpa.alloc(u64, s.kc.len);
+         errdefer s.gpa.free(v.kc);
+         v.ic = try s.gpa.alloc(u64, s.ic.len);
+-        for (s.kc, v.kc) |a, *b| b.* = a + slot * lat;
+-        for (s.ic, v.ic) |a, *b| b.* = if (a != 0) a + slot * idx else 0;
+-        if (s.mkc != 0) v.mkc = s.mkc + slot * lat;
+-        if (s.mic != 0) v.mic = s.mic + slot * idx;
++        v.pointView(s, w, slot * s.local);
+         return v;
+     }
+ 
++    /// Reuse a view's host arrays while changing the first device row of its stream.
++    pub fn pointView(v: *State, s: *const State, w: *const W.Weights, base: usize) void {
++        std.debug.assert(v.view);
++        const c = w.config;
++        const lat = base * s.kv_row_bytes;
++        const idx = base * c.index_dim * 2;
++        for (s.kc, v.kc) |a, *b| b.* = a + lat;
++        for (s.ic, v.ic) |a, *b| b.* = if (a != 0) a + idx else 0;
++        if (s.mkc != 0) v.mkc = s.mkc + base * c.latentWidth() * 2;
++        if (s.mic != 0) v.mic = s.mic + idx;
++    }
++
+     pub fn freeView(v: *State) void {
+         std.debug.assert(v.view);
+         v.gpa.free(v.kc);
+@@ -552,9 +585,13 @@ pub const State = struct {
+ 
+     /// fused.State.bytes_for with w.dcp: a rank's shard of the caches.
+     pub fn bytesForDcp(w: *const W.Weights, capacity: usize, dcp: usize) usize {
++        return bytesForDcpWithKv(w, capacity, dcp, w.config.latentWidth() * 2);
++    }
++
++    pub fn bytesForDcpWithKv(w: *const W.Weights, capacity: usize, dcp: usize, kv_row_bytes: usize) usize {
+         const c = w.config;
+         var per: usize = 0;
+-        for (w.layers) |*L| per += c.latentWidth() * 2 + (if (L.indexer != null) c.index_dim * 2 else 0);
++        for (w.layers) |*L| per += kv_row_bytes + (if (L.indexer != null) c.index_dim * 2 else 0);
+         if (w.mtp) |*m| per += c.latentWidth() * 2 + (if (m.layer.indexer != null) c.index_dim * 2 else 0);
+         return per * dcpm.localCapacity(capacity, @max(dcp, 1));
+     }
+@@ -649,6 +686,13 @@ pub const Forward = struct {
+     /// Phase 3b: decode context parallelism (w.dcp: 1, or the world - every rank of the TP world is one of the DCP
+     /// group, its rank w.rank). The State must be State.initDcp(.., dcp) and every Buffers BufOpts.dcp = dcp.
+     dcp: usize = 1,
++    /// End of the current prefill chunk, or zero for the sharded decode path.
++    prefill_end: usize = 0,
++    /// Gather a short sharded decode cache once and evaluate only this rank's query heads.
++    short_kv_rows: usize = 0,
++    dcp_decode_packed: bool = false,
++    dcp_decode_a2a: bool = false,
++    fp8_kv: bool = false,
+     /// Phase 4: the target layers whose output rows the drafters read (fused.Weights.tap_slot): every target window
+     /// copies them into its buffers' taps (Buffers with BufOpts.taps = taps.n); n 0: none
+     taps: Taps = .{},
+@@ -848,11 +892,67 @@ pub const Forward = struct {
+                         try t_.iqRope(b.iq, f.inv, pos, R, c.index_heads, c.index_dim, c.rope);
+                     }
+                     if (sd) |x| try x.join(f.s); // the window's index keys are in
+-                    try f.select(b, ic, pos, 0, R, tt);
++                    if (f.prefill_end != 0) {
++                        try f.gatherPrefillCache(b.prefill_gather, b.prefill_index, ic, c.index_dim * 2, f.prefill_end - R);
++                        try f.selectPrefill(b, pos, R, tt);
++                    } else {
++                        try f.select(b, ic, pos, 0, R, tt);
++                    }
+                 }
+             }
+         }
+-        try f.attentionCore(b, L, kc, pos, R, q_done);
++        if (f.prefill_end != 0) {
++            if (sd) |x| try x.join(f.s);
++            try f.gatherLatentCache(b, kc, f.prefill_end - R);
++            var local = f.*;
++            local.dcp = 1;
++            try local.attentionCore(b, L, b.prefill_keys, pos, R, q_done);
++        } else if (f.short_kv_rows != 0) {
++            if (sd) |x| try x.join(f.s);
++            try f.gatherLatentCache(b, kc, f.short_kv_rows);
++            var local = f.*;
++            local.dcp = 1;
++            try local.attentionCore(b, L, b.prefill_keys, pos, R, q_done);
++        } else {
++            try f.attentionCore(b, L, kc, pos, R, q_done);
++        }
++    }
++
++    fn gatherLatentCache(f: *const Forward, b: *const Buffers, shard: u64, end: usize) !void {
++        if (!f.fp8_kv)
++            return f.gatherPrefillCache(b.prefill_gather, b.prefill_keys, shard, f.w.config.latentWidth() * 2, end);
++        if (end == 0) return;
++        const comm = f.comm orelse return error.NoDcpBuffers;
++        const padded = dcpm.cdiv(end, f.dcp);
++        try comm.allGather(shard, b.prefill_gather, padded * State.fp8_row_bytes, .u8, f.s.handle);
++        try f.t().unpackKvFp8(b.prefill_gather, b.prefill_keys, end, padded, f.dcp);
++    }
++
++    /// Gather rank-major slices of one layer, then restore the original token order.
++    fn gatherPrefillCache(f: *const Forward, staging: u64, full: u64, shard: u64, row_bytes: usize, end: usize) !void {
++        if (end == 0) return;
++        const comm = f.comm orelse return error.NoDcpBuffers;
++        const padded = dcpm.cdiv(end, f.dcp);
++        try comm.allGather(shard, staging, padded * row_bytes / 2, .bf16, f.s.handle);
++        for (0..f.dcp) |rank| {
++            const rows = dcpm.cdiv(end -| rank, f.dcp);
++            try f.ops().copyRows(full + rank * row_bytes, row_bytes * f.dcp,
++                staging + rank * padded * row_bytes, row_bytes, row_bytes, rows);
++        }
++    }
++
++    /// Split identical indexer queries across ranks and share the selected token IDs.
++    fn selectPrefill(f: *const Forward, b: *const Buffers, pos: u64, R: usize, T: usize) !void {
++        var local = f.*;
++        local.dcp = 1;
++        if (R < 512) return local.select(b, b.prefill_index, pos, 0, R, T);
++        const comm = f.comm orelse return error.NoDcpBuffers;
++        const rows = std.mem.alignForward(usize, dcpm.cdiv(R, f.dcp), 128);
++        const first = rows * f.dcpRank();
++        const K = f.w.config.index_topk;
++        if (first < R) try local.select(b, b.prefill_index, pos, first, @min(rows, R - first), T);
++        try comm.allGather(b.tok + first * K * 4, b.prefill_selection, rows * K, .i32, f.s.handle);
++        try f.ops().copy(b.tok, b.prefill_selection, R * K * 4);
+     }
+ 
+     /// attention_part's keys(): the window's latent and rope key and, on indexer layers (not under reuse), the index
+@@ -861,11 +961,17 @@ pub const Forward = struct {
+         const c = f.w.config;
+         const t_ = f.t();
+         const rank = f.dcpRank();
+-        if (f.base != 0) {
++        if (f.fp8_kv and f.base != 0) {
++            try t_.kvWriteFp8Rows(b.kva, b.kva_n, L.kv_a_norm, kc, pos, f.base, f.inv, c.eps, R, f.dcp, rank);
++        } else if (f.fp8_kv) {
++            try t_.kvWriteFp8(b.kva, b.kva_n, L.kv_a_norm, kc, pos, f.inv, c.eps, R, f.dcp, rank);
++        } else if (f.base != 0) {
+             try t_.kvWriteRowsDcp(b.kva, b.kva_n, L.kv_a_norm, kc, pos, f.base, f.inv, c.eps, R, f.mla(), f.dcp, rank);
+         } else {
+             try t_.kvWriteDcp(b.kva, b.kva_n, L.kv_a_norm, kc, pos, f.inv, c.eps, R, f.mla(), f.dcp, rank);
+         }
++        if (f.prefill_end != 0)
++            try t_.kvWrite(b.kva, b.kva_n, L.kv_a_norm, b.prefill_keys, pos, f.inv, c.eps, R, f.mla());
+         if (L.indexer) |*ix| {
+             if (reuse == 0) {
+                 try t_.router(b.normed, c.hidden, ix.wk, b.ik, b.rpart, R, c.hidden, c.index_dim);
+@@ -874,6 +980,8 @@ pub const Forward = struct {
+                 } else {
+                     try t_.ikWriteDcp(b.ik, ix.k_norm_w, ix.k_norm_b, f.inv, ic, pos, R, c.index_dim, c.rope, f.dcp, rank);
+                 }
++                if (f.prefill_end != 0)
++                    try t_.ikWrite(b.ik, ix.k_norm_w, ix.k_norm_b, f.inv, b.prefill_index, pos, R, c.index_dim, c.rope);
+             }
+         }
+     }
+@@ -1245,11 +1353,32 @@ pub const Forward = struct {
+         try o.dcpQpack(b.qlat, b.qrot, b.qpack, R * H, lw, rd);
+         try f.dcpGather(b.qpack, b.qall, R * H * (lw + rd) * 2, R * H * (lw + rd), .bf16, small);
+         const nch = @max(1, c.index_topk / tl.chk);
+-        if (f.base != 0) {
++        if (f.fp8_kv and f.base != 0) {
++            try t_.attnDcpFp8Rows(b.qall, kc, b.tok, b.cnt, pos, f.base, b.po, b.pm, b.pl, R, m, G, rank, tl);
++        } else if (f.fp8_kv) {
++            try t_.attnDcpFp8(b.qall, kc, b.tok, b.cnt, pos, b.po, b.pm, b.pl, R, m, G, rank, tl);
++        } else if (f.base != 0) {
+             try t_.attnDcpRows(b.qall, kc, b.tok, b.cnt, pos, f.base, b.po, b.pm, b.pl, R, m, G, rank, tl);
+         } else {
+             try t_.attnDcp(b.qall, kc, b.tok, b.cnt, pos, b.po, b.pm, b.pl, R, m, G, rank, tl);
+         }
++        if (small and f.dcp_decode_packed) {
++            const heads = R * H;
++            if (f.dcp_decode_a2a) {
++                const output_bytes = heads * lw * 2;
++                const packet_bytes = output_bytes + heads * 4;
++                try t_.mergeLsePacket(b.po, b.pm, b.pl, b.osend, b.osend + output_bytes, R, G, m, nch);
++                const cm = f.comm orelse return error.NoCommunicator;
++                try dcpm.allToAll(cm, b.osend, b.orecv, packet_bytes, .u8, 1, f.s.handle);
++                return t_.dcpCombine(b.orecv, b.orecv + output_bytes, b.ol, R, packet_bytes / 2, packet_bytes / 4, m, G);
++            }
++            const output_bytes = G * heads * lw * 2;
++            const packet_bytes = output_bytes + G * heads * 4;
++            try t_.mergeLse(b.po, b.pm, b.pl, b.osend, b.osend + output_bytes, R, G, m, nch);
++            try f.dcpGather(b.osend, b.orecv, packet_bytes, packet_bytes, .u8, true);
++            return t_.dcpCombine(b.orecv + rank * heads * lw * 2,
++                b.orecv + output_bytes + rank * heads * 4, b.ol, R, packet_bytes / 2, packet_bytes / 4, m, G);
++        }
+         try t_.mergeLse(b.po, b.pm, b.pl, b.osend, b.lsend, R, G, m, nch);
+         if (small) {
+             try f.dcpGather(b.osend, b.orecv, G * R * H * lw * 2, G * R * H * lw, .bf16, true);
+diff --git a/zig/src/families/glm_moe_dsa/cuda_multi.zig b/zig/src/families/glm_moe_dsa/cuda_multi.zig
+index 6e45e3ce40ef3b1d5a90357ef8b591bcf900c510..94a7decc945b827dd6b4a54b572fce77d1299235 100644
+--- a/zig/src/families/glm_moe_dsa/cuda_multi.zig
++++ b/zig/src/families/glm_moe_dsa/cuda_multi.zig
+@@ -56,6 +56,7 @@ const smp = @import("sampling.zig");
+ const W = @import("cuda_weights.zig");
+ const rn = @import("cuda_runner.zig");
+ const rz = @import("cuda_reuse.zig");
++const dcpm = @import("cuda_dcp.zig");
+ const draft = @import("cuda_draft.zig");
+ const mdraft = @import("cuda_mdraft.zig");
+ 
+@@ -405,6 +406,7 @@ pub const Stream = struct {
+     sid: u32,
+     slot: usize,
+     mode: Mode,
++    keep_prefixes: bool = false,
+     sampling: ?smp.Sampling,
+     count: usize, // tokens to make, the first one included
+     prompt: []u32,
+@@ -461,6 +463,7 @@ pub const Admit = struct {
+     sid: u32,
+     slot: usize,
+     mode: Mode,
++    keep_prefixes: ?bool = null,
+     sampling: ?smp.Sampling = null,
+     count: usize,
+     prompt: []const u32,
+@@ -487,6 +490,40 @@ pub const Choice = struct {
+     }
+ };
+ 
++const KvRange = struct {
++    base: usize = 0,
++    rows: usize = 0,
++    tokens: usize = 0,
++
++    fn overlaps(a: KvRange, b: KvRange) bool {
++        return a.rows != 0 and b.rows != 0 and a.base < b.base + b.rows and b.base < a.base + a.rows;
++    }
++};
++
++fn firstGap(ranges: []const KvRange, busy: []const bool, capacity: usize, rows: usize) ?usize {
++    var span: KvRange = .{ .rows = rows };
++    while (span.base + rows <= capacity) {
++        const start = span.base;
++        for (ranges, busy) |r, active| {
++            if (active and span.overlaps(r)) span.base = r.base + r.rows;
++        }
++        if (span.base == start) return start;
++    }
++    return null;
++}
++
++test "shared KV allocator skips active extents, reuses freed extents, and handles fragmentation" {
++    const extents = [_]KvRange{
++        .{ .base = 70, .rows = 20 },
++        .{ .base = 0, .rows = 30 },
++        .{ .base = 40, .rows = 20 },
++    };
++    try std.testing.expectEqual(@as(?usize, 30), firstGap(&extents, &.{ true, true, true }, 100, 10));
++    try std.testing.expectEqual(@as(?usize, null), firstGap(&extents, &.{ true, true, true }, 100, 11));
++    try std.testing.expectEqual(@as(?usize, 30), firstGap(&extents, &.{ true, true, false }, 100, 40));
++    try std.testing.expectEqual(@as(?usize, 0), firstGap(&extents, &.{ false, false, false }, 100, 100));
++}
++
+ /// The lead's caller, told when a round's GPU work is queued and the host is about to wait for it (rank 0's server:
+ /// the previous round's tokens go to the replies then, off the path between a round's picks and the next round).
+ pub const Idle = struct {
+@@ -589,6 +626,7 @@ pub const Multi = struct {
+     MR: usize,
+     rows: usize,
+     local: usize,
++    kv_ranges: [max_streams]KvRange,
+     D: usize,
+     V: usize, // vocab_part
+     hv: usize, // the MTP head's logits a row (the draft head's rows, else vocab_part)
+@@ -662,6 +700,7 @@ pub const Multi = struct {
+         mu.MR = n * (k + 1);
+         mu.rows = rows;
+         mu.local = r.st.local;
++        mu.kv_ranges = @splat(.{});
+         mu.D = c.hidden;
+         mu.V = w.vocab_part;
+         mu.hv = if (w.draft) |dh| dh.n else w.vocab_part;
+@@ -722,7 +761,7 @@ pub const Multi = struct {
+             gpa.free(mu.views);
+         }
+         for (0..n) |s| {
+-            mu.views[s] = try r.st.slotView(w, s);
++            mu.views[s] = try r.st.slotView(w, if (r.set.shared_kv) 0 else s);
+             made += 1;
+         }
+         errdefer {
+@@ -785,7 +824,7 @@ pub const Multi = struct {
+ 
+     /// The caches' bytes a stream holds (multi.nbytes_per_stream: the State's share, the drafters' rings).
+     pub fn bytesPerStream(mu: *const Multi) usize {
+-        var b = fw.State.bytesForDcp(mu.w, mu.r.capacity, mu.r.set.dcp);
++        var b = fw.State.bytesForDcpWithKv(mu.w, mu.r.capacity, mu.r.set.dcp, mu.r.st.kv_row_bytes);
+         for (mu.md) |maybe| {
+             if (maybe) |x| b += x.deviceBytes() / mu.N;
+         }
+@@ -826,6 +865,67 @@ pub const Multi = struct {
+         return n;
+     }
+ 
++    fn reservationRows(mu: *const Multi, tokens: usize) usize {
++        return dcpm.localCapacity(tokens + 1, mu.r.set.dcp);
++    }
++
++    /// Requests reserve their input and maximum output before admission. A request waits when either its
++    /// token budget or a contiguous extent is unavailable; active streams' addresses never move.
++    pub fn canAdmitKv(mu: *const Multi, tokens: usize) bool {
++        if (!mu.r.set.shared_kv) return true;
++        var reserved: usize = 0;
++        for (mu.kv_ranges[0..mu.N], mu.busy[0..mu.N]) |r, active| {
++            if (active) reserved += r.tokens;
++        }
++        return tokens <= (mu.r.capacity - 1) -| reserved and
++            firstGap(mu.kv_ranges[0..mu.N], mu.busy[0..mu.N], mu.local, mu.reservationRows(tokens)) != null;
++    }
++
++    fn canKeepBase(mu: *const Multi, slot: usize, rows: usize) bool {
++        const span: KvRange = .{ .base = mu.kv_ranges[slot].base, .rows = rows };
++        if (span.base + rows > mu.local) return false;
++        for (mu.kv_ranges[0..mu.N], mu.busy[0..mu.N]) |r, active| {
++            if (active and span.overlaps(r)) return false;
++        }
++        return true;
++    }
++
++    fn forgetSlot(mu: *Multi, slot: usize) !void {
++        mu.kv_ranges[slot] = .{};
++        const st = if (mu.store) |*store| store else return;
++        var i: usize = 0;
++        while (i < st.entries.items.len) {
++            const e = st.entries.items[i];
++            if (e.slot == slot) st.drop(e) else i += 1;
++        }
++        try st.setLiveSlot(slot, &.{});
++    }
++
++    fn reserveKv(mu: *Multi, a: Admit) !void {
++        const tokens = a.prompt.len + a.count;
++        if (!mu.canAdmitKv(tokens)) return error.NoKvSpace;
++        const rows = mu.reservationRows(tokens);
++        const keep = a.begin > 0 and a.src == null;
++        const base = if (keep) mu.kv_ranges[a.slot].base else
++            firstGap(mu.kv_ranges[0..mu.N], mu.busy[0..mu.N], mu.local, rows) orelse return error.NoKvSpace;
++        if (keep and !mu.canKeepBase(a.slot, rows)) return error.NoKvSpace;
++        const span: KvRange = .{ .base = base, .rows = rows, .tokens = tokens };
++        for (0..mu.N) |i| {
++            if (mu.busy[i]) continue;
++            if (i == a.slot) {
++                if (!keep and mu.kv_ranges[i].base != base) try mu.forgetSlot(i);
++            } else if (span.overlaps(mu.kv_ranges[i])) {
++                try mu.forgetSlot(i);
++            }
++        }
++        mu.kv_ranges[a.slot] = span;
++        mu.views[a.slot].pointView(&mu.r.st, mu.w, base);
++    }
++
++    fn slotBase(mu: *const Multi, slot: usize) usize {
++        return if (mu.r.set.shared_kv) mu.kv_ranges[slot].base else slot * mu.local;
++    }
++
+     pub fn find(mu: *const Multi, sid: u32) ?*Stream {
+         for (mu.streams.items) |s| if (s.sid == sid) return s;
+         for (mu.filling.items) |s| if (s.sid == sid) return s;
+@@ -857,7 +957,7 @@ pub const Multi = struct {
+ 
+     /// Rank 0: SlotReuse.choose - (slot, resume point, its rows' slot, cuts, keeps) for a request (`resume_` false:
+     /// "draft": false, the cold reference: cut alike, nothing resumed or kept). No reuse: the first free slot.
+-    pub fn choose(mu: *Multi, prompt: []const u32, resume_: bool) !Choice {
++    pub fn choose(mu: *Multi, prompt: []const u32, count: usize, resume_: bool) !Choice {
+         var first_free: ?usize = null;
+         for (mu.busy[0..mu.N], 0..) |b, i| if (!b) {
+             first_free = i;
+@@ -867,7 +967,12 @@ pub const Multi = struct {
+         const st = if (mu.store) |*x| x else return .{ .slot = free0 };
+         const pts = try mu.plan_rz.points(mu.gpa, prompt);
+         defer mu.gpa.free(pts);
+-        const hit = if (resume_) st.best(prompt, pts, 0) else null;
++        var hit = if (resume_) st.best(prompt, pts, 0) else null;
++        if (mu.r.set.shared_kv and hit != null and !mu.busy[hit.?.slot] and
++            !mu.canKeepBase(hit.?.slot, mu.reservationRows(prompt.len + count)))
++        {
++            hit = null;
++        }
+         var slot = free0;
+         var src: ?usize = null;
+         if (hit != null and !mu.busy[hit.?.slot]) {
+@@ -896,16 +1001,19 @@ pub const Multi = struct {
+         const c = mu.w.config;
+         const o = mu.ops();
+         const st = &mu.r.st;
+-        const lat = c.latentWidth() * 2;
++        const lat = st.kv_row_bytes;
+         const idx = c.index_dim * 2;
++        const dst_base = mu.slotBase(dst);
++        const src_base = mu.slotBase(src);
+         // DCP: this rank's share of the state's rows (every rank copies the most any rank holds, as rowViews counts)
+         const m = st.localRows(n);
+         const mm = st.localMtpRows(n);
+-        for (st.kc) |p| try o.copy(p + dst * mu.local * lat, p + src * mu.local * lat, m * lat);
+-        for (st.ic) |p| if (p != 0) try o.copy(p + dst * mu.local * idx, p + src * mu.local * idx, m * idx);
++        for (st.kc) |p| try o.copy(p + dst_base * lat, p + src_base * lat, m * lat);
++        for (st.ic) |p| if (p != 0) try o.copy(p + dst_base * idx, p + src_base * idx, m * idx);
+         if (st.mkc != 0 and mm > 0) {
+-            try o.copy(st.mkc + dst * mu.local * lat, st.mkc + src * mu.local * lat, mm * lat);
+-            if (st.mic != 0) try o.copy(st.mic + dst * mu.local * idx, st.mic + src * mu.local * idx, mm * idx);
++            const mtp_lat = c.latentWidth() * 2;
++            try o.copy(st.mkc + dst_base * mtp_lat, st.mkc + src_base * mtp_lat, mm * mtp_lat);
++            if (st.mic != 0) try o.copy(st.mic + dst_base * idx, st.mic + src_base * idx, mm * idx);
+         }
+     }
+ 
+@@ -1002,7 +1110,7 @@ pub const Multi = struct {
+         if (a.flush) try mu.flushReuse();
+         const s = try mu.gpa.create(Stream);
+         errdefer mu.gpa.destroy(s);
+-        s.* = .{ .sid = a.sid, .slot = a.slot, .mode = mode, .sampling = a.sampling, .count = a.count, .prompt = &.{}, .eos = &.{}, .named = &.{}, .chunks = &.{}, .begin = a.begin, .hook = a.hook, .t_admit = mu.now() };
++        s.* = .{ .sid = a.sid, .slot = a.slot, .mode = mode, .keep_prefixes = a.keep_prefixes orelse (mode != .serial), .sampling = a.sampling, .count = a.count, .prompt = &.{}, .eos = &.{}, .named = &.{}, .chunks = &.{}, .begin = a.begin, .hook = a.hook, .t_admit = mu.now() };
+         errdefer s.out.deinit(mu.gpa);
+         s.prompt = try mu.gpa.dupe(u32, a.prompt);
+         errdefer mu.gpa.free(s.prompt);
+@@ -1020,6 +1128,7 @@ pub const Multi = struct {
+             s.chunks = try rn.cutChunks(mu.gpa, a.begin, L, a.stops, rows, short);
+         }
+         errdefer mu.gpa.free(s.chunks);
++        if (mu.r.set.shared_kv) try mu.reserveKv(a);
+         const hit = try mu.admitReuse(s, a);
+         // the stream's drafter context starts at its prompt; a resumed one at its resume point with the kept state's
+         // ring window (multi._queue: put_slot_ring_window), else empty there (MultiDrafter.reset)
+@@ -1038,6 +1147,15 @@ pub const Multi = struct {
+     pub fn finish(mu: *Multi, sid: u32) void {
+         const s = mu.take(sid) orelse return;
+         mu.busy[s.slot] = false;
++        if (mu.r.set.shared_kv) {
++            var keep: usize = 0;
++            if (mu.store) |*st| {
++                for (st.entries.items) |e| {
++                    if (e.slot == s.slot) keep = @max(keep, e.n());
++                }
++            }
++            mu.kv_ranges[s.slot].rows = if (keep == 0) 0 else mu.reservationRows(keep);
++        }
+         mu.destroy(s);
+     }
+ 
+@@ -1114,7 +1232,7 @@ pub const Multi = struct {
+         const hb = try r.prefillChunk(&mu.views[s.slot], s.prompt, a, e, s.ci, head);
+         if (mu.mdOf(s.mode)) |x| try x.feedPrompt(&r.pb, s.slot, a, e, L); // multi._chunk: dr.commit(the chunk's taps)
+         s.ci += 1;
+-        if (mu.store != null and s.mode != .serial and (isNamed(s.named, e) or e == L)) {
++        if (mu.store != null and s.keep_prefixes and (isNamed(s.named, e) or e == L)) {
+             try mu.keepState(s, e, if (e == L) hb.?.lg else null);
+         }
+         if (e != L) return null;
+@@ -1381,6 +1499,9 @@ pub const Multi = struct {
+         try mu.propose(plan, &dd);
+         try mu.mark(0);
+         var t = try tables(plan, mu.k, mu.BL, mu.local, &dd);
++        if (mu.r.set.shared_kv) {
++            for (t.vbase[0..t.R]) |*base| base.* = @intCast(mu.slotBase(@as(usize, @intCast(base.*)) / mu.local));
++        }
+         if (t.R == 0) return error.Invalid;
+         try mu.upload(&t);
+         const topk = mu.r.topk;
+@@ -1451,7 +1572,7 @@ pub const Multi = struct {
+         const t0 = mu.now();
+         var bs: [24]?usize = undefined;
+         const bks = r.buckets(&bs);
+-        const cap = r.capacity - @max(mu.k, mu.frows) - 2;
++        const cap = r.capacity - @max(mu.k, mu.frows) - 2 - if (r.set.shared_kv) mu.rows else 0;
+         for (bks, 0..) |T, bi| {
+             const prev: ?usize = if (bi > 0) bks[bi - 1] else null;
+             const P: usize = if (T == null) 10 else @min((prev orelse r.topk) + 100, cap);
+@@ -1476,8 +1597,8 @@ pub const Multi = struct {
+             const width = mu.rows / mu.N;
+             var t: Tables = .{ .R = mu.rows };
+             for (0..mu.rows) |i| {
+-                t.vpos[i] = @intCast(P + i % width);
+-                t.vbase[i] = @intCast((i / width) * mu.local);
++                t.vpos[i] = @intCast(P + if (r.set.shared_kv) i else i % width);
++                t.vbase[i] = if (r.set.shared_kv) 0 else @intCast((i / width) * mu.local);
+                 t.vids[i] = 1000;
+             }
+             try mu.upload(&t);
+diff --git a/zig/src/families/glm_moe_dsa/cuda_reuse.zig b/zig/src/families/glm_moe_dsa/cuda_reuse.zig
+index 8d71b47eeb20f1cda2f1bd45f1650d84ea8f1485..2b15ea597a5e676a21600d040538b5e3e06d6573 100644
+--- a/zig/src/families/glm_moe_dsa/cuda_reuse.zig
++++ b/zig/src/families/glm_moe_dsa/cuda_reuse.zig
+@@ -605,7 +605,7 @@ pub fn rowViews(gpa: std.mem.Allocator, st: *const fw.State, c: anytype, n: usiz
+     errdefer out.deinit(gpa);
+     const lat = c.latentWidth() * 2;
+     const idx = c.index_dim * 2;
+-    for (st.kc) |p| try out.append(gpa, .{ .ptr = p, .row = lat, .rows = m });
++    for (st.kc) |p| try out.append(gpa, .{ .ptr = p, .row = st.kv_row_bytes, .rows = m });
+     for (st.ic) |p| if (p != 0) try out.append(gpa, .{ .ptr = p, .row = idx, .rows = m });
+     if (st.mkc != 0) {
+         try out.append(gpa, .{ .ptr = st.mkc, .row = lat, .rows = mm });
+@@ -744,7 +744,9 @@ pub const Reuse = struct {
+         defer pr.gpa.free(offs);
+         const total = savedSize(vs, offs);
+         const mem = try pr.pool.get(total);
++        errdefer pr.pool.put(mem);
+         const sv = try pr.gpa.create(Saved);
++        errdefer pr.gpa.destroy(sv);
+         sv.* = .{ .mem = mem, .nbytes = total, .n = e.n(), .refs = 1 };
+         const o = pr.ops();
+         for (vs, offs) |v, off| try o.copy(mem.ptr + off, v.ptr, v.row * v.rows);
+@@ -794,6 +796,7 @@ pub const Reuse = struct {
+         sv.* = .{ .mem = mem, .nbytes = total, .n = ids.len, .refs = 1 };
+         e.saved = sv;
+         e.carry = try pr.pool.get(carry_host.len);
++        errdefer pr.pool.put(e.carry);
+         try rows.fill(vs, offs, mem.ptr);
+         try pr.r.d.check(pr.r.d.api.cuMemcpyHtoD_v2(e.carry.ptr, carry_host.ptr, carry_host.len), "cuMemcpyHtoD");
+         return e;
+@@ -802,6 +805,7 @@ pub const Reuse = struct {
+     pub fn flush(pr: *Reuse) !void {
+         try pr.r.f.s.synchronize();
+         pr.store.clear();
++        pr.r.replicated_end = 0;
+         try pr.pool.trim(0, pr.r.f.s); // torch.cuda.empty_cache()
+     }
+ 
+diff --git a/zig/src/families/glm_moe_dsa/cuda_runner.zig b/zig/src/families/glm_moe_dsa/cuda_runner.zig
+index 317e726376dd9da83566679b3c8105e0b42f5d2d..f2c3ae9576776e08e710beb7b401989af32b25f2 100644
+--- a/zig/src/families/glm_moe_dsa/cuda_runner.zig
++++ b/zig/src/families/glm_moe_dsa/cuda_runner.zig
+@@ -37,6 +37,8 @@ const draft = @import("cuda_draft.zig");
+ const dhost = @import("draft_host.zig");
+ const copies = @import("copies.zig");
+ 
++const short_kv_limit: usize = 512;
++
+ pub const Settings = struct {
+     /// MTP drafts a round the buffers and graphs are built for (a request may ask fewer; 0: serial only)
+     k: usize = 2,
+@@ -56,6 +58,8 @@ pub const Settings = struct {
+     prompt_rows: usize = 8192,
+     prompt_rows_short: usize = 4096,
+     prompt_sp: bool = true,
++    dcp_prefill_gather: bool = false,
++    dcp_short_kv: bool = false,
+     /// TF_GLM53_ROCE_HEALTH: after each window's picks are read, every rank agrees no RoCE runtime timed out
+     roce_health: bool = true,
+     /// the sequence-parallel chunk (its comm stream and events), owned by the caller; null: no overlap
+@@ -77,6 +81,7 @@ pub const Settings = struct {
+     /// Phase 4b (--parallel N): the caches hold this many streams' slots (fused.State(slots=N)); `run` uses slot 0,
+     /// cuda_multi.zig drives the rest (under DCP too: each slot this rank's shard of its stream).
+     slots: usize = 1,
++    shared_kv: bool = false,
+ };
+ 
+ /// What drafts a request's rounds (runner.set_mode: the MTP head, DSpark, DFlash2).
+@@ -243,6 +248,10 @@ pub const Runner = struct {
+     /// Phase 4c: prompt chunks feed the one-stream drafters (false while cuda_multi.zig fills a stream's chunk: the
+     /// stream's own concurrent drafter takes its taps)
+     solo_feed: bool = true,
++    replicated_cache: ?fw.State = null,
++    replicated_ids: []u32 = &.{},
++    replicated_end: usize = 0,
++    replicated_prefill: bool = false,
+ 
+     fn pinLayout(r: *const Runner) struct { lg: usize, send: usize, all: usize, ids: usize, rd: usize, vote: usize, vids: usize, total: usize } {
+         const V = r.w.vocab_part;
+@@ -267,7 +276,11 @@ pub const Runner = struct {
+         if (set.dcp != 1 and set.dcp != w.world) return error.BadDcp;
+         if (set.slots == 0) return error.BadDcp; // several streams under DCP: cuda_multi (docs/glm53-dcp-streams.md)
+         if (set.dcp > 1 and !set.served) return error.BadDcp; // the served prompt path only
+-        if (set.dcp > 1) { // Runner.__init__ with dcp > 1: prompt chunks of at most 1024 rows, no overlap
++        if (set.dcp_prefill_gather and (!set.served or set.dcp == 1 or set.k != 0))
++            return error.BadDcp;
++        if (set.dcp_short_kv and (!set.dcp_prefill_gather or short_kv_limit > @min(capacity, c.index_topk)))
++            return error.BadDcp;
++        if (set.dcp > 1 and !set.dcp_prefill_gather) {
+             set.prompt_rows = @min(set.prompt_rows, 1024);
+             set.prompt_rows_short = @min(set.prompt_rows_short, set.prompt_rows);
+         }
+@@ -312,22 +325,47 @@ pub const Runner = struct {
+         r.mrows = mrows;
+         r.copy_on = copy_on;
+         r.solo_feed = true;
++        r.replicated_cache = null;
++        r.replicated_ids = &.{};
++        r.replicated_end = 0;
++        r.replicated_prefill = false;
+         const shared = f.shared_experts;
+-        r.st = try fw.State.initSlots(gpa, d, w, capacity, set.dcp, set.slots);
++        const kv_row_bytes = if (f.fp8_kv) fw.State.fp8_row_bytes else c.latentWidth() * 2;
++        // One physical pool, with at most two padding rows per concurrent reservation.
++        const cache_capacity = if (set.shared_kv) capacity + set.dcp * set.slots * 2 else capacity;
++        const cache_slots = if (set.shared_kv) 1 else set.slots;
++        r.st = try fw.State.initSlotsWithKv(gpa, d, w, cache_capacity, set.dcp, cache_slots, kv_row_bytes);
+         errdefer r.st.deinit();
+         if (set.served) {
+             // Runner.__init__: pb (prompt_rows, exact key range), pb1 (the second micro-batch) when chunks overlap
+-            r.pb = try fw.Buffers.initWith(gpa, d, w, set.prompt_rows, @max(capacity, 1), .{ .mtp = set.k > 0, .prompt = true, .shared_experts = shared, .mtp_dense = set.k > 0 and f.mtp_dense != null, .dcp = set.dcp, .taps = taps });
++            const prompt_dcp = if (set.dcp_prefill_gather) 1 else set.dcp;
++            const gather_ranks = if (set.dcp_prefill_gather) set.dcp else 1;
++            r.pb = try fw.Buffers.initWith(gpa, d, w, set.prompt_rows, @max(capacity, 1), .{ .mtp = set.k > 0, .prompt = true, .shared_experts = shared, .mtp_dense = set.k > 0 and f.mtp_dense != null, .dcp = prompt_dcp, .prefill_dcp = gather_ranks, .taps = taps });
+         } else {
+             r.pb = try fw.Buffers.initWith(gpa, d, w, set.window, @max(capacity, 1), .{ .mtp = set.k > 0, .taps = taps });
+         }
+         errdefer r.pb.deinit();
+-        if (set.served and set.prompt_sp and set.sp != null and w.world > 1 and set.dcp == 1) { // fused: sp needs dcp 1
+-            r.pb1 = try fw.Buffers.initWith(gpa, d, w, set.prompt_rows - set.prompt_rows / 2, @max(capacity, 1), .{ .prompt = true, .shared_experts = shared, .dcp = set.dcp, .taps = taps });
++        // The replicated prefill cache belongs to a single prompt. Multi uses each stream's sharded slot directly.
++        if (set.served and set.prompt_sp and set.sp != null and w.world > 1 and
++            (set.dcp == 1 or (set.dcp_prefill_gather and set.slots == 1)))
++        {
++            r.pb1 = try fw.Buffers.initWith(gpa, d, w, set.prompt_rows - set.prompt_rows / 2,
++                if (set.dcp_prefill_gather) @min(capacity, 32768) else @max(capacity, 1),
++                .{ .prompt = true, .shared_experts = shared, .taps = taps });
+             r.sp = set.sp;
+         }
+         errdefer if (r.pb1) |*b| b.deinit();
+-        r.vb = try fw.Buffers.initWith(gpa, d, w, wrows, cols, .{ .decode = true, .shared_experts = shared, .dcp = set.dcp, .taps = taps });
++        if (set.dcp_prefill_gather and r.sp != null) {
++            const limit = @min(capacity, 32768);
++            r.replicated_ids = try gpa.alloc(u32, limit);
++            errdefer gpa.free(r.replicated_ids);
++            r.replicated_cache = try fw.State.init(gpa, d, w, limit);
++        }
++        errdefer if (r.replicated_cache) |*cache| {
++            cache.deinit();
++            gpa.free(r.replicated_ids);
++        };
++        r.vb = try fw.Buffers.initWith(gpa, d, w, wrows, cols, .{ .decode = true, .shared_experts = shared, .dcp = set.dcp, .short_kv_rows = if (set.dcp_short_kv) short_kv_limit else 0, .taps = taps });
+         errdefer r.vb.deinit();
+         r.mb = null;
+         if (set.k > 0) r.mb = try fw.Buffers.initWith(gpa, d, w, @max(@max(set.k + 1, vrows), crows), cols, .{ .decode = true, .mtp = true, .shared_experts = shared, .dcp = set.dcp });
+@@ -356,6 +394,10 @@ pub const Runner = struct {
+         if (r.ids_dev) |*b| b.free();
+         if (r.health) |*b| b.free();
+         if (r.pb1) |*b| b.deinit();
++        if (r.replicated_cache) |*cache| {
++            cache.deinit();
++            r.gpa.free(r.replicated_ids);
++        }
+         r.pin.free();
+         r.carry.free();
+         if (r.mb) |*m| m.deinit();
+@@ -445,16 +487,23 @@ pub const Runner = struct {
+         R: usize,
+         T: ?usize,
+         pick: Pick,
++        kv_rows: usize,
+         fn go(c: @This()) !void {
+-            try c.r.f.compute(&c.r.vb, &c.r.st, c.R, c.T, if (c.pick == .argmax) .argmax else .local, false);
++            var forward = c.r.f;
++            forward.short_kv_rows = c.kv_rows;
++            try forward.compute(&c.r.vb, &c.r.st, c.R, c.T, if (c.pick == .argmax) .argmax else .local, false);
+         }
+     };
+ 
+     /// Runner._verify: the target over vb.ids[:R] at P (logits "all", head `pick`).
+     fn verify(r: *Runner, R: usize, P: usize, T: ?usize, pick: Pick) !void {
+         try r.setI32(r.st.pos, P);
+-        const key: u64 = 1 | (@as(u64, R) << 4) | (tIndex(T) << 12) | (@as(u64, @intFromEnum(pick)) << 20);
+-        try r.runGraph(key, VerifyCtx{ .r = r, .R = R, .T = T, .pick = pick });
++        const kv_rows = if (r.set.dcp_short_kv and T == null and P + R <= short_kv_limit)
++            tri.pow2(@max(P + R, 32))
++        else
++            0;
++        const key: u64 = 1 | (@as(u64, R) << 4) | (tIndex(T) << 12) | (@as(u64, @intFromEnum(pick)) << 20) | (@as(u64, kv_rows) << 24);
++        try r.runGraph(key, VerifyCtx{ .r = r, .R = R, .T = T, .pick = pick, .kv_rows = kv_rows });
+     }
+ 
+     const MtpCtx = struct {
+@@ -530,6 +579,16 @@ pub const Runner = struct {
+                 if (!r.hasWidth(R)) continue;
+                 try r.verify(R, 0, T, .argmax);
+                 try r.verify(R, 0, T, .local);
++                if (T == null and r.set.dcp_short_kv) {
++                    // Warm each gathered extent and the ordinary sharded path before the indexer starts.
++                    var extent: usize = 64;
++                    while (extent <= short_kv_limit) : (extent *= 2) {
++                        try r.verify(R, extent - R, null, .argmax);
++                        try r.verify(R, extent - R, null, .local);
++                    }
++                    try r.verify(R, short_kv_limit + 1, null, .argmax);
++                    try r.verify(R, short_kv_limit + 1, null, .local);
++                }
+             }
+             if (r.set.k > 0) {
+                 for (1..r.mrows + 1) |m| try r.mtp(m, 1, 0, T, 0);
+@@ -782,13 +841,17 @@ pub const Runner = struct {
+     /// device once, and each chunk takes its rows there (no host step between chunks).
+     /// Phase 3b: rows from `begin` (a kept state's rows and carry already in place), the chunks cut at `cuts`
+     /// (prefixes.cut_chunks), `keep` called at each cut inside (begin, L0) once its chunk is queued and at L0 with the
+-    /// head's logits row. DCP > 1: never the sequence-parallel chunk (fused.compute_prompt_sp needs dcp 1).
++    /// head's logits row. Sequence parallelism uses replicated KV, copied into DCP shards before saving a cut.
+     fn prefill(r: *Runner, prompt_ids: []const u32, s: ?smp.Sampling, begin: usize, cuts: []const usize, keep: ?Keep, votes: ?Hooks) !u32 {
+         const L0 = prompt_ids.len;
+         const rows = if (r.set.served) r.set.prompt_rows else r.set.window;
+-        const short = if (r.set.served) r.set.prompt_rows_short else r.set.window;
+         if (begin >= L0) return error.Invalid;
+         if (begin > 0 and !r.set.served) return error.Invalid; // resuming needs the device ids of the served path
++        r.replicated_prefill = L0 <= r.replicated_ids.len and begin <= r.replicated_end and
++            std.mem.eql(u32, r.replicated_ids[0..begin], prompt_ids[0..begin]);
++        if (r.replicated_prefill) r.replicated_end = 0;
++        defer r.replicated_prefill = false;
++        const short = if (r.replicated_prefill) @min(r.set.prompt_rows_short, 4096) else if (r.set.served) r.set.prompt_rows_short else r.set.window;
+         const chunks = try cutChunks(r.gpa, begin, L0, cuts, rows, short);
+         defer r.gpa.free(chunks);
+         const head: fw.HeadMode = if (s == null) .argmax else .local;
+@@ -825,6 +888,10 @@ pub const Runner = struct {
+             p.on = false; // the prompt only: decode windows are never timed (nor captured with events in them)
+         }
+         if (keep) |k| try k.at(L0, hb.lg); // Runner.generate: keep(L0, lg) before the first pick moves anything
++        if (r.replicated_prefill) {
++            @memcpy(r.replicated_ids[0..L0], prompt_ids);
++            r.replicated_end = L0;
++        }
+         return r.pickFirst(hb, L0, s);
+     }
+ 
+@@ -861,11 +928,12 @@ pub const Runner = struct {
+         } else {
+             try r.uploadIds(r.pb.ids, prompt_ids[a..e]);
+         }
+-        try r.setI32(st.pos, a);
+-        const sp_ok = if (r.sp != null and r.pb1 != null and r.set.dcp == 1) R >= prompt.min_overlap_rows and prompt.spFits(r.w.world, r.pb.rows, r.pb1.?.rows, R) else false;
++        const active_cache = if (r.replicated_prefill) &r.replicated_cache.? else st;
++        try r.setI32(active_cache.pos, a);
++        const sp_ok = if (r.sp != null and r.pb1 != null and (r.set.dcp == 1 or r.replicated_prefill)) R >= prompt.min_overlap_rows and prompt.spFits(r.w.world, r.pb.rows, r.pb1.?.rows, R) else false;
+         if (sp_ok) {
+             const b1 = &r.pb1.?;
+-            try r.sp.?.chunk(st, &r.pb, b1, a, R, T);
++            try r.sp.?.chunk(active_cache, &r.pb, b1, a, R, T);
+             if (last) {
+                 const hR = R / 2;
+                 const p0 = try r.f.pbegin();
+@@ -874,9 +942,17 @@ pub const Runner = struct {
+                 hb = b1;
+             }
+         } else {
+-            try r.f.compute(&r.pb, st, R, T, if (last) head else .none, true);
++            var forward = r.f;
++            if (r.replicated_prefill) {
++                forward.dcp = 1;
++                forward.fp8_kv = false;
++            } else if (r.set.dcp_prefill_gather) {
++                forward.prefill_end = e;
++            }
++            try forward.compute(&r.pb, active_cache, R, T, if (last) head else .none, true);
+             if (last) hb = &r.pb;
+         }
++        if (r.replicated_prefill) try r.writePrefilledShard(active_cache, st, a, e);
+         if (r.solo_feed) try r.feedPrompt(&r.pb, a, e, L0); // prefill_chunk: the drafters' contexts take this chunk's taps
+         if (r.set.k > 0) try r.mtpPrompt(st, prompt_ids, a, e, T);
+         if (!r.set.served) try r.f.s.synchronize(); // the pinned ids are reused by the next chunk
+@@ -890,6 +966,27 @@ pub const Runner = struct {
+         return hb;
+     }
+ 
++    fn writePrefilledShard(r: *const Runner, full: *const fw.State, shard: *const fw.State, begin: usize, end: usize) !void {
++        const rank = r.w.rank;
++        const world = r.set.dcp;
++        const first = ((begin -| rank) + world - 1) / world;
++        const stop = ((end -| rank) + world - 1) / world;
++        if (stop == first) return;
++        const global = first * world + rank;
++        const latent = r.w.config.latentWidth() * 2;
++        const index = r.w.config.index_dim * 2;
++        const ops_ = r.ops();
++        for (full.kc, shard.kc, full.ic, shard.ic) |fk, sk, fi, si| {
++            if (r.f.fp8_kv) {
++                const t: tri.Tri = .{ .set = &r.f.k.triton, .s = r.f.s };
++                try t.packKvFp8(fk + global * latent, sk + first * shard.kv_row_bytes, world * latent / 2, stop - first);
++            } else {
++                try ops_.copyRows(sk + first * latent, latent, fk + global * latent, world * latent, latent, stop - first);
++            }
++            if (fi != 0) try ops_.copyRows(si + first * index, index, fi + global * index, world * index, index, stop - first);
++        }
++    }
++
+     /// The first pick from `hb`'s head row (row 0: the prompt's last row): greedy from its argmax records, sampled
+     /// from its local logits (Runner.generate's `sample(lg, L0)`).
+     pub fn pickFirst(r: *Runner, hb: *const fw.Buffers, L0: usize, s: ?smp.Sampling) !u32 {
+diff --git a/zig/src/families/glm_moe_dsa/cuda_triton.zig b/zig/src/families/glm_moe_dsa/cuda_triton.zig
+index 48c0d2fafdb21a093f6a6aab74e7f65a7f141106..1d370877d625561eb17009a8a7f31380c5661410 100644
+--- a/zig/src/families/glm_moe_dsa/cuda_triton.zig
++++ b/zig/src/families/glm_moe_dsa/cuda_triton.zig
+@@ -119,6 +119,22 @@ pub const Tri = struct {
+         try t.run("_kv_write", .{ rows, 1, 1 }, &.{ p("KVA", "*bf16", kva), int("kva_stride", kva_stride), p("NW", "*bf16", nw), p("LC", "*bf16", cache), p("POS", "*i32", pos), p("INV", "*fp32", inv), aot.float("eps", eps) }, &.{ ci("LW", m.lw), ci("RD", m.rope), ci("DCP", dcp), ci("RANK", rank), cb("ROWS", false) }, .{ .num_warps = 4 });
+     }
+ 
++    pub fn kvWriteFp8(t: Tri, kva: u64, stride: usize, nw: u64, cache: u64, pos: u64, inv: u64, eps: f32, rows: usize, dcp: usize, rank: usize) !void {
++        try t.run("_kv_write_fp8", .{ rows, 1, 1 }, &.{ p("KVA", "*bf16", kva), int("kva_stride", stride), p("NW", "*bf16", nw), p("LC", "*u8", cache), p("POS", "*i32", pos), p("INV", "*fp32", inv), aot.float("eps", eps) }, &.{ ci("DCP", dcp), ci("RANK", rank) }, .{ .num_warps = 4 });
++    }
++
++    pub fn kvWriteFp8Rows(t: Tri, kva: u64, stride: usize, nw: u64, cache: u64, pos: u64, base: u64, inv: u64, eps: f32, rows: usize, dcp: usize, rank: usize) !void {
++        try t.run("_kv_write_fp8_rows", .{ rows, 1, 1 }, &.{ p("KVA", "*bf16", kva), int("kva_stride", stride), p("NW", "*bf16", nw), p("LC", "*u8", cache), p("POS", "*i32", pos), p("BASE", "*i32", base), p("INV", "*fp32", inv), aot.float("eps", eps) }, &.{ ci("DCP", dcp), ci("RANK", rank) }, .{ .num_warps = 4 });
++    }
++
++    pub fn packKvFp8(t: Tri, src: u64, cache: u64, stride: usize, rows: usize) !void {
++        try t.run("_pack_kv_fp8", .{ rows, 1, 1 }, &.{ p("SRC", "*bf16", src), p("LC", "*u8", cache) }, &.{ ci("STRIDE", stride) }, .{ .num_warps = 4 });
++    }
++
++    pub fn unpackKvFp8(t: Tri, src: u64, dst: u64, rows: usize, padded: usize, dcp: usize) !void {
++        try t.run("_unpack_kv_fp8", .{ cdiv(rows, 8), 1, 1 }, &.{ p("LC", "*u8", src), p("DST", "*bf16", dst), int("ROWS", rows), int("PAD", padded) }, &.{ ci("DCP", dcp) }, .{ .num_warps = 4 });
++    }
++
+     /// fused._ik_write: the index key's LayerNorm (fp32, bias) and RoPE on its first RD dims into IC[POS + r].
+     pub fn ikWrite(t: Tri, ik: u64, nw: u64, nb: u64, inv: u64, ic: u64, pos: u64, rows: usize, d: usize, rd: usize) !void {
+         return t.ikWriteDcp(ik, nw, nb, inv, ic, pos, rows, d, rd, 1, 0);
+@@ -160,9 +176,19 @@ pub const Tri = struct {
+     /// [G, R, H, LW + RD]) over this rank's keys of row r (its slots of positions 0..p while p < K, else its share
+     /// of the selection, TOK / CNT); partials at head g * H + h of [nch, R, G * H].
+     pub fn attnDcp(t: Tri, qall: u64, cache: u64, tok: u64, cnt: u64, pos: u64, po: u64, pm: u64, pl: u64, rows: usize, m: Mla, g: usize, rank: usize, tl: AttnTiling) !void {
++        try t.attnDcpOf("_attn_dcp", "*bf16", qall, cache, tok, cnt, pos, po, pm, pl, rows, m, g, rank, tl);
++    }
++
++    pub fn attnDcpFp8(t: Tri, qall: u64, cache: u64, tok: u64, cnt: u64, pos: u64, po: u64, pm: u64, pl: u64, rows: usize, m: Mla, g: usize, rank: usize, tl: AttnTiling) !void {
++        var tile = tl;
++        tile.ns = 1; // the two-stage FP8 dequantization exceeds SM120 shared memory
++        try t.attnDcpOf("_attn_dcp_fp8", "*u8", qall, cache, tok, cnt, pos, po, pm, pl, rows, m, g, rank, tile);
++    }
++
++    fn attnDcpOf(t: Tri, name: []const u8, dtype: []const u8, qall: u64, cache: u64, tok: u64, cnt: u64, pos: u64, po: u64, pm: u64, pl: u64, rows: usize, m: Mla, g: usize, rank: usize, tl: AttnTiling) !void {
+         const nch = @max(1, m.topk / tl.chk);
+         const scale = f32of(std.math.pow(f64, @floatFromInt(m.nope + m.rope), -0.5));
+-        try t.run("_attn_dcp", .{ rows, nch, g }, &.{ p("QALL", "*bf16", qall), p("LC", "*bf16", cache), p("TOK", "*i32", tok), p("CNT", "*i32", cnt), p("POS", "*i32", pos), p("PO", "*fp32", po), p("PM", "*fp32", pm), p("PL", "*fp32", pl), int("R", rows) }, &.{ ci("H", m.heads), ci("G", g), ci("LW", m.lw), ci("RD", m.rope), ci("K", m.topk), ci("CHK", tl.chk), ci("KTT", tl.kt), aot.cf("SCALE", scale), ci("DCP", g), ci("RANK", rank) }, .{ .num_warps = tl.nw, .num_stages = tl.ns });
++        try t.run(name, .{ rows, nch, g }, &.{ p("QALL", "*bf16", qall), p("LC", dtype, cache), p("TOK", "*i32", tok), p("CNT", "*i32", cnt), p("POS", "*i32", pos), p("PO", "*fp32", po), p("PM", "*fp32", pm), p("PL", "*fp32", pl), int("R", rows) }, &.{ ci("H", m.heads), ci("G", g), ci("LW", m.lw), ci("RD", m.rope), ci("K", m.topk), ci("CHK", tl.chk), ci("KTT", tl.kt), aot.cf("SCALE", scale), ci("DCP", g), ci("RANK", rank) }, .{ .num_warps = tl.nw, .num_stages = tl.ns });
+     }
+ 
+     /// fused._merge_lse: program (row, head of all HT = G * H): this rank's chunk partials in chunk order -> the
+@@ -171,6 +197,10 @@ pub const Tri = struct {
+         try t.run("_merge_lse", .{ rows, g * m.heads, 1 }, &.{ p("PO", "*fp32", po), p("PM", "*fp32", pm), p("PL", "*fp32", pl), p("OSEND", "*bf16", osend), p("LSEND", "*fp32", lsend), int("R", rows) }, &.{ ci("HT", g * m.heads), ci("H", m.heads), ci("LW", m.lw), ci("NCH", nch) }, .{ .num_warps = 4 });
+     }
+ 
++    pub fn mergeLsePacket(t: Tri, po: u64, pm: u64, pl: u64, osend: u64, lsend: u64, rows: usize, g: usize, m: Mla, nch: usize) !void {
++        try t.run("_merge_lse_packet", .{ rows, g * m.heads, 1 }, &.{ p("PO", "*fp32", po), p("PM", "*fp32", pm), p("PL", "*fp32", pl), p("OSEND", "*bf16", osend), p("LSEND", "*fp32", lsend), int("R", rows) }, &.{ ci("HT", g * m.heads), ci("H", m.heads), ci("LW", m.lw), ci("NCH", nch) }, .{ .num_warps = 4 });
++    }
++
+     /// fused._dcp_combine: program (row, own head) - every rank's normalized partial merged in rank order by their
+     /// log-sum-exps (ORECV[src] at stride ss elements, LRECV[src] at stride ssl) -> OUT [R, H, LW] bf16.
+     pub fn dcpCombine(t: Tri, orecv: u64, lrecv: u64, out: u64, rows: usize, ss: usize, ssl: usize, m: Mla, world: usize) !void {
+@@ -270,9 +300,19 @@ pub const Tri = struct {
+     /// slots of positions 0..POS[r] while POS[r] < K, else its share of the row's selection, TOK / CNT), read from
+     /// the stream's cache rows at BASE[r]. A function of its own so no pack made before it can answer its launches.
+     pub fn attnDcpRows(t: Tri, qall: u64, cache: u64, tok: u64, cnt: u64, pos: u64, base: u64, po: u64, pm: u64, pl: u64, rows: usize, m: Mla, g: usize, rank: usize, tl: AttnTiling) !void {
++        try t.attnDcpRowsOf("_attn_dcp_rows", "*bf16", qall, cache, tok, cnt, pos, base, po, pm, pl, rows, m, g, rank, tl);
++    }
++
++    pub fn attnDcpFp8Rows(t: Tri, qall: u64, cache: u64, tok: u64, cnt: u64, pos: u64, base: u64, po: u64, pm: u64, pl: u64, rows: usize, m: Mla, g: usize, rank: usize, tl: AttnTiling) !void {
++        var tile = tl;
++        tile.ns = 1;
++        try t.attnDcpRowsOf("_attn_dcp_fp8_rows", "*u8", qall, cache, tok, cnt, pos, base, po, pm, pl, rows, m, g, rank, tile);
++    }
++
++    fn attnDcpRowsOf(t: Tri, name: []const u8, dtype: []const u8, qall: u64, cache: u64, tok: u64, cnt: u64, pos: u64, base: u64, po: u64, pm: u64, pl: u64, rows: usize, m: Mla, g: usize, rank: usize, tl: AttnTiling) !void {
+         const nch = @max(1, m.topk / tl.chk);
+         const scale = f32of(std.math.pow(f64, @floatFromInt(m.nope + m.rope), -0.5));
+-        try t.run("_attn_dcp_rows", .{ rows, nch, g }, &.{ p("QALL", "*bf16", qall), p("LC", "*bf16", cache), p("TOK", "*i32", tok), p("CNT", "*i32", cnt), p("POS", "*i32", pos), p("BASE", "*i32", base), p("PO", "*fp32", po), p("PM", "*fp32", pm), p("PL", "*fp32", pl), int("R", rows) }, &.{ ci("H", m.heads), ci("G", g), ci("LW", m.lw), ci("RD", m.rope), ci("K", m.topk), ci("CHK", tl.chk), ci("KTT", tl.kt), aot.cf("SCALE", scale), ci("DCP", g), ci("RANK", rank) }, .{ .num_warps = tl.nw, .num_stages = tl.ns });
++        try t.run(name, .{ rows, nch, g }, &.{ p("QALL", "*bf16", qall), p("LC", dtype, cache), p("TOK", "*i32", tok), p("CNT", "*i32", cnt), p("POS", "*i32", pos), p("BASE", "*i32", base), p("PO", "*fp32", po), p("PM", "*fp32", pm), p("PL", "*fp32", pl), int("R", rows) }, &.{ ci("H", m.heads), ci("G", g), ci("LW", m.lw), ci("RD", m.rope), ci("K", m.topk), ci("CHK", tl.chk), ci("KTT", tl.kt), aot.cf("SCALE", scale), ci("DCP", g), ci("RANK", rank) }, .{ .num_warps = tl.nw, .num_stages = tl.ns });
+     }
+ 
+     /// fused._attention_local ROWS: row r at POS[r] over its stream's cache rows from BASE[r] (its key list: keys
+diff --git a/zig/src/native/glm53_cuda.zig b/zig/src/native/glm53_cuda.zig
+index d5eb95bda36f5737d5cf8c898216483a206aa36c..a8810ca1d9c2b09a8c511b822770b7881d95bc67 100644
+--- a/zig/src/native/glm53_cuda.zig
++++ b/zig/src/native/glm53_cuda.zig
+@@ -25,6 +25,7 @@ const cuda = @import("cuda");
+ const api = @import("engine_api");
+ const glm = @import("glm53");
+ const eng = glm.engine;
++const lmcache = @import("glm53_lmcache.zig");
+ const smp = glm.sampling;
+ const Allocator = std.mem.Allocator;
+ const Imprint = api.prompt_imprint.Imprint;
+@@ -38,7 +39,7 @@ pub const default_context: i64 = 32768;
+ 
+ const magic: u32 = 0x47353348; // "G53H"
+ 
+-const Kind = enum(u32) { request = 1, load = 2, persist = 3, forget = 4, bye = 5, admit = 6, fill = 7, round = 8, finish = 9 };
++const Kind = enum(u32) { request = 1, load = 2, persist = 3, forget = 4, bye = 5, admit = 6, fill = 7, round = 8, finish = 9, flush_cache = 10 };
+ 
+ const flag_flush: u32 = 1; // PromptReuse.FLUSH
+ const flag_draft: u32 = 2; // "draft": true (drafted, resumable, keeps)
+@@ -98,6 +99,7 @@ pub const Host = struct {
+     startup: []u8 = &.{},
+     // --learn
+     learned: ?Imprint = null,
++    lmcache_port: ?u16 = null,
+     identity: u64 = 0,
+     // rank 0's engine thread and its queue
+     thread: ?std.Thread = null,
+@@ -378,6 +380,8 @@ pub const Host = struct {
+         defer live.emitted.deinit(h.gpa);
+         h.setBusy(true);
+         defer h.setBusy(false);
++        const graphs_before = h.boot.r.graph_runs;
++        const eager_before = h.boot.r.eager_runs;
+         const outcome = h.runRequest(job, &live) catch |e| {
+             if (e == error.PromptStopped) {
+                 // the client left while its prompt filled: every rank stopped at the same chunk
+@@ -402,7 +406,7 @@ pub const Host = struct {
+         if (!@import("builtin").is_test) {
+             const ttft: f64 = if (live.first) |f| @as(f64, @floatFromInt(f - started)) / 1e9 else 0;
+             const n_out = h.out.items.len;
+-            std.log.info("glm53: done req-{d} prompt={d} cached={d} tokens={d} finish={t} tok/s={d:.1} ttft={d:.2}s prefill={d:.2}s decode={d:.2}s rounds={d} accepted={d}/{d} sampled={s} seq={d}", .{ job.id, r.prompt.len, st.begin, n_out, reason, st.tokS(n_out), ttft, st.prefill_s, st.decode_s, st.rounds, st.accepted, st.drafted, if (outcome.sampling != null) "true" else "false", h.seq });
++            std.log.info("glm53: done req-{d} prompt={d} cached={d} tokens={d} finish={t} tok/s={d:.1} ttft={d:.2}s prefill={d:.2}s decode={d:.2}s rounds={d} accepted={d}/{d} graphs={d} eager={d} sampled={s} seq={d}", .{ job.id, r.prompt.len, st.begin, n_out, reason, st.tokS(n_out), ttft, st.prefill_s, st.decode_s, st.rounds, st.accepted, st.drafted, h.boot.r.graph_runs - graphs_before, h.boot.r.eager_runs - eager_before, if (outcome.sampling != null) "true" else "false", h.seq });
+         }
+         // --learn: the request's shared states reach the disk before its reply ends (a client that stops the server
+         // right after the reply still finds them learned)
+@@ -423,8 +427,13 @@ pub const Host = struct {
+         var flags: u32 = if (draft) flag_draft else 0;
+         if (s == null) flags |= flag_greedy;
+         if (h.flush_file) |path| if (sess.reuse != null and takeFlush(path)) {
+-            flags |= flag_flush;
+-            try sess.reuse.?.flush(); // rank 0 forgets before it chooses; the others at the request
++            if (h.lmcache_port != null) {
++                var clear: Head = .{ .kind = @intFromEnum(Kind.flush_cache) };
++                try h.send(&clear, &.{});
++            } else {
++                flags |= flag_flush;
++            }
++            try sess.reuse.?.flush();
+         };
+         var learned: usize = 0;
+         if (draft and h.learned != null and sess.reuse != null) learned = try h.loadLearned(r.prompt);
+@@ -493,7 +502,7 @@ pub const Host = struct {
+             var n_admit: usize = 0;
+             var n_gone: usize = 0;
+             while (h.queue.items.len > 0 and mu.live() + n_admit < h.parallel and n_gone < gone_buf.len) {
+-                const job = h.queue.orderedRemove(0);
++                const job = h.queue.items[0];
+                 var gone = false;
+                 for (h.cancels.items, 0..) |c, i| if (c == job.id) {
+                     _ = h.cancels.swapRemove(i);
+@@ -501,11 +510,21 @@ pub const Host = struct {
+                     break;
+                 };
+                 if (gone) {
++                    _ = h.queue.orderedRemove(0);
+                     gone_buf[n_gone] = job;
+                     n_gone += 1;
+                 } else {
++                    if (mu.r.set.shared_kv) {
++                        const len = job.request.prompt.len;
++                        if (h.session.clampTokens(len, job.request.max_tokens)) |count| {
++                            if (!mu.canAdmitKv(len + count)) break;
++                        } else |_| {} // admitOne reports invalid input to its caller
++                    }
++                    _ = h.queue.orderedRemove(0);
+                     admit_buf[n_admit] = job;
+                     n_admit += 1;
++                    // Update the reservation before evaluating the next request's available KV budget.
++                    if (mu.r.set.shared_kv) break;
+                 }
+             }
+             h.unlock();
+@@ -616,7 +635,7 @@ pub const Host = struct {
+             flags |= flag_flush;
+             try mu.flushReuse(); // rank 0 forgets before it chooses; the others at the admission
+         };
+-        const c = try mu.choose(r.prompt, draft);
++        const c = try mu.choose(r.prompt, max_tokens, draft);
+         defer c.deinit(h.gpa);
+         const sid = mu.next_sid;
+         const lv = try h.gpa.create(Live);
+@@ -640,7 +659,7 @@ pub const Host = struct {
+         @memcpy(payload[r.prompt.len + c.stops.len + c.keeps.len ..], r.eos);
+         h.mseq += 1;
+         try h.sendOne(&head, payload);
+-        _ = mu.admit(.{ .sid = sid, .slot = c.slot, .mode = if (draft) glm.multi.modeOf(h.boot.mode) else .serial, .sampling = s, .count = max_tokens, .prompt = r.prompt, .eos = r.eos, .begin = c.begin, .src = c.src, .stops = c.stops, .keeps = c.keeps, .flush = false, .hook = .{ .ctx = lv, .tokens = Live.tokens } }) catch |e| {
++        _ = mu.admit(.{ .sid = sid, .slot = c.slot, .mode = if (draft) glm.multi.modeOf(h.boot.mode) else .serial, .keep_prefixes = draft, .sampling = s, .count = max_tokens, .prompt = r.prompt, .eos = r.eos, .begin = c.begin, .src = c.src, .stops = c.stops, .keeps = c.keeps, .flush = false, .hook = .{ .ctx = lv, .tokens = Live.tokens } }) catch |e| {
+             mu.broken = h.boot.o.world > 1; // the followers took the admission
+             return e;
+         };
+@@ -806,6 +825,10 @@ pub const Host = struct {
+                     try h.verify(&head, &.{});
+                     h.learnForget(head.key);
+                 },
++                .flush_cache => {
++                    try h.verify(&head, &.{});
++                    if (h.session.reuse) |pr| try pr.flush();
++                },
+                 .admit, .fill, .round, .finish => try h.followMulti(&head),
+             }
+         }
+@@ -834,7 +857,8 @@ pub const Host = struct {
+                 const keeps = ws[head.prompt_len + head.n_stops ..][0..head.n_keeps];
+                 const eos = ws[head.prompt_len + head.n_stops + head.n_keeps ..][0..head.n_eos];
+                 const s: ?smp.Sampling = if (head.flags & flag_greedy != 0) null else .{ .seed = head.seed, .temperature = head.temperature, .top_k = head.top_k, .top_p = head.top_p, .min_p = head.min_p };
+-                _ = try mu.admit(.{ .sid = @intCast(head.key), .slot = head.at, .mode = if (head.flags & flag_draft != 0) glm.multi.modeOf(h.boot.mode) else .serial, .sampling = s, .count = head.max_tokens, .prompt = prompt, .eos = eos, .begin = head.begin, .src = if (head.pad > 0) head.pad - 1 else null, .stops = stops, .keeps = keeps, .flush = head.flags & flag_flush != 0 });
++                const draft = head.flags & flag_draft != 0;
++                _ = try mu.admit(.{ .sid = @intCast(head.key), .slot = head.at, .mode = if (draft) glm.multi.modeOf(h.boot.mode) else .serial, .keep_prefixes = draft, .sampling = s, .count = head.max_tokens, .prompt = prompt, .eos = eos, .begin = head.begin, .src = if (head.pad > 0) head.pad - 1 else null, .stops = stops, .keeps = keeps, .flush = head.flags & flag_flush != 0 });
+             },
+             .fill => {
+                 try h.verify(head, &.{});
+@@ -962,7 +986,11 @@ pub const Host = struct {
+         const pr = h.session.reuse orelse return false;
+         var buf: [1200]u8 = undefined;
+         const file = try eng.Session.statePath(&buf, h.dir(), key, h.rank);
+-        const got = h.session.readState(ids, file, key, h.identity) catch |e| blk: {
++        const result = if (h.lmcache_port) |port|
++            h.loadRemote(port, key, ids)
++        else
++            h.session.readState(ids, file, key, h.identity);
++        const got = result catch |e| blk: {
+             std.log.warn("glm53 rank {d}: learned state {x:0>16} not read ({t})", .{ h.rank, key, e });
+             break :blk null;
+         };
+@@ -975,17 +1003,44 @@ pub const Host = struct {
+             pr.store.destroy(got.?);
+             return false;
+         }
++        if (h.rank == 0 and h.lmcache_port != null)
++            std.log.info("glm53 LMCache restored {d} prefix tokens on all ranks", .{ids.len});
+         return true;
+     }
+ 
++    fn loadRemote(h: *Host, port: u16, key: u64, ids: []const u32) !*glm.reuse.Kept {
++        const bytes = try h.stateBytes(ids.len);
++        var cache = try lmcache.StateStream.connect(h.gpa, port, ids, @intCast(bytes), h.identity, h.boot.o.world, h.rank);
++        defer cache.close();
++        return h.session.readStateFrom(ids, &cache, key, h.identity);
++    }
++
++    fn saveRemote(h: *Host, port: u16, key: u64, e: *glm.reuse.Kept) !u64 {
++        const bytes = try h.stateBytes(e.n());
++        var cache = try lmcache.StateStream.connect(h.gpa, port, e.ids, @intCast(bytes), h.identity, h.boot.o.world, h.rank);
++        defer cache.close();
++        const saved = try h.session.writeStateTo(e, &cache, key, h.identity);
++        try cache.finish();
++        return saved;
++    }
++
+     /// Rank 0: every shared kept state not learned yet written to disk (each rank its shard), within --learn-gib.
+     fn persistShared(h: *Host) !void {
+         const pr = h.session.reuse orelse return;
+         const m = &h.learned.?;
++        var best: usize = 0;
++        if (h.lmcache_port != null) {
++            for (pr.store.entries.items) |e| {
++                if (e.learned or e.head != null or (!e.shared and e.n() < 4096) or e.n() <= best or !pr.store.usable(e)) continue;
++                const bytes = try h.stateBytes(e.n());
++                if (bytes + (64 << 10) <= pr.store.budget and !m.has(Imprint.keyOf(e.ids))) best = e.n();
++            }
++            if (best == 0) return;
++        }
+         var i: usize = 0;
+         while (i < pr.store.entries.items.len) : (i += 1) {
+             const e = pr.store.entries.items[i];
+-            if (!e.shared or e.learned) continue;
++            if (e.learned or (if (h.lmcache_port != null) e.n() != best else !e.shared)) continue;
+             const key = Imprint.keyOf(e.ids);
+             if (m.has(key)) {
+                 e.learned = true;
+@@ -1004,6 +1059,7 @@ pub const Host = struct {
+             defer h.gpa.free(ids);
+             try h.send(&head, ids);
+             _ = try h.learnPersist(key, ids);
++            if (h.lmcache_port != null) return;
+         }
+     }
+ 
+@@ -1026,7 +1082,11 @@ pub const Host = struct {
+         var bytes: u64 = 0;
+         const e = pr.store.named(ids, ids.len);
+         if (e) |x| {
+-            bytes = h.session.writeState(x, file, key, h.identity) catch |err| blk: {
++            const result = if (h.lmcache_port) |port|
++                h.saveRemote(port, key, x)
++            else
++                h.session.writeState(x, file, key, h.identity);
++            bytes = result catch |err| blk: {
+                 std.log.warn("glm53 rank {d}: learned state {x:0>16} not written ({t})", .{ h.rank, key, err });
+                 break :blk 0;
+             };
+@@ -1043,7 +1103,10 @@ pub const Host = struct {
+         for (pts, starts) |p, *x| x.* = @intCast(p);
+         try h.learned.?.add(key, @intCast(ids.len), ids, starts, bytes);
+         e.?.learned = true;
+-        if (h.rank == 0) std.log.info("glm53: learned a shared prompt state of {d} tokens ({d:.2} GiB a rank)", .{ ids.len, @as(f64, @floatFromInt(bytes)) / (1 << 30) });
++        if (h.rank == 0) {
++            const where = if (h.lmcache_port != null) "LMCache" else "--learn disk";
++            std.log.info("glm53 {s}: stored a prefix of {d} tokens ({d:.2} GiB per rank)", .{ where, ids.len, @as(f64, @floatFromInt(bytes)) / (1 << 30) });
++        }
+         return true;
+     }
+ 
+@@ -1227,6 +1290,14 @@ pub fn open(a: Allocator, gpa: Allocator, io: std.Io, o: api.Open, problem: *[]c
+         problem.* = "--learn keeps prompt states that prompt reuse made: set TF_GLM53_PROMPT_REUSE=1 on every rank";
+         return null;
+     }
++    const lmcache_port = if (std.c.getenv("TF_GLM53_LMCACHE_PORT")) |value|
++        std.fmt.parseInt(u16, std.mem.span(value), 10) catch 0
++    else
++        null;
++    if (lmcache_port != null and (lmcache_port.? == 0 or o.learn == null)) {
++        problem.* = "TF_GLM53_LMCACHE_PORT needs a loopback port and a per-rank --learn directory";
++        return null;
++    }
+     const boot = eng.Boot.init(gpa, io, opts) catch |e| {
+         problem.* = try std.fmt.allocPrint(a, "glm53 rank {d}: the engine did not start ({t})", .{ opts.rank, e });
+         return null;
+@@ -1235,7 +1306,7 @@ pub fn open(a: Allocator, gpa: Allocator, io: std.Io, o: api.Open, problem: *[]c
+     defer if (!ok) boot.deinit();
+     const h = try gpa.create(Host);
+     defer if (!ok) gpa.destroy(h);
+-    h.* = .{ .gpa = gpa, .io = io, .boot = boot, .session = undefined, .rank = opts.rank, .parallel = opts.parallel };
++    h.* = .{ .gpa = gpa, .io = io, .boot = boot, .session = undefined, .rank = opts.rank, .parallel = opts.parallel, .lmcache_port = lmcache_port };
+     h.session = try eng.Session.init(gpa, boot);
+     defer if (!ok) h.session.deinit();
+     // --learn on every rank or none: the ranks agree, then the probe gives the identity
+@@ -1251,6 +1322,8 @@ pub fn open(a: Allocator, gpa: Allocator, io: std.Io, o: api.Open, problem: *[]c
+         h.identity = try h.identityOf();
+         h.learned = try Imprint.open(gpa, o.learn.?, h.identity, @intFromFloat(o.learn_gib * (1 << 30)));
+         if (h.rank == 0) std.log.info("glm53: learned prompt states in {s} ({d} known, {d} of {d} MiB)", .{ h.learned.?.dir, h.learned.?.metas.items.len, h.learned.?.total() >> 20, @as(u64, @intFromFloat(o.learn_gib * 1024)) });
++        if (h.rank == 0 and lmcache_port != null)
++            std.log.info("glm53 LMCache: storing learned state payloads at 127.0.0.1:{d}", .{lmcache_port.?});
+     }
+     h.flush_file = if (std.c.getenv("TF_GLM53_FLUSH_FILE")) |v| std.mem.span(v) else null;
+     h.fail_file = if (std.c.getenv("TF_GLM53_FAIL_FILE")) |v| std.mem.span(v) else null;
+diff --git a/zig/src/native/glm53_lmcache.zig b/zig/src/native/glm53_lmcache.zig
+new file mode 100644
+index 0000000000000000000000000000000000000000..15be078c6b5bb1599fdfe496f19a5bb06251a1f5
+--- /dev/null
++++ b/zig/src/native/glm53_lmcache.zig
+@@ -0,0 +1,142 @@
++//! LMCache's lm:// remote server protocol, used with TensorFold's own state format.
++const std = @import("std");
++const posix = std.posix;
++
++const chunk_bytes = 4 << 20;
++const key_bytes = 150;
++const header_bytes = 36;
++const binary_buffer = 5;
++const uint8_dtype = 6;
++const success = 200;
++const Command = enum(u32) { put = 1, get = 2, exists = 3 };
++
++pub const StateStream = struct {
++    gpa: std.mem.Allocator,
++    fd: c_int,
++    buf: []u8,
++    total: usize,
++    identity: u64,
++    world: usize,
++    rank: usize,
++    digest: [64]u8,
++    written: usize = 0,
++    loaded: ?usize = null,
++
++    pub fn connect(gpa: std.mem.Allocator, port: u16, ids: []const u32, total: usize, identity: u64, world: usize, rank: usize) !StateStream {
++        if (total == 0) return error.BadCacheSize;
++        const fd = std.c.socket(posix.AF.INET, posix.SOCK.STREAM | posix.SOCK.CLOEXEC, 0);
++        if (fd < 0) return error.CacheConnect;
++        errdefer _ = std.c.close(fd);
++        const timeout: extern struct { seconds: c_long, micros: c_long } = .{ .seconds = 5, .micros = 0 };
++        try posix.setsockopt(fd, posix.SOL.SOCKET, posix.SO.SNDTIMEO, std.mem.asBytes(&timeout));
++        try posix.setsockopt(fd, posix.SOL.SOCKET, posix.SO.RCVTIMEO, std.mem.asBytes(&timeout));
++        const addr: posix.sockaddr.in = .{
++            .family = posix.AF.INET,
++            .port = std.mem.nativeToBig(u16, port),
++            .addr = std.mem.nativeToBig(u32, 0x7f000001),
++        };
++        if (posix.errno(posix.system.connect(fd, @ptrCast(&addr), @sizeOf(posix.sockaddr.in))) != .SUCCESS)
++            return error.CacheConnect;
++        var hash: [32]u8 = undefined;
++        std.crypto.hash.sha2.Sha256.hash(std.mem.sliceAsBytes(ids), &hash, .{});
++        return .{
++            .gpa = gpa, .fd = fd, .buf = try gpa.alloc(u8, @min(total, chunk_bytes)),
++            .total = total, .identity = identity, .world = world, .rank = rank,
++            .digest = std.fmt.bytesToHex(hash, .lower),
++        };
++    }
++
++    pub fn close(s: *StateStream) void {
++        _ = std.c.close(s.fd);
++        s.gpa.free(s.buf);
++    }
++
++    fn sendAll(s: *const StateStream, data: []const u8) !void {
++        var off: usize = 0;
++        while (off < data.len) {
++            const n = std.c.send(s.fd, data[off..].ptr, data.len - off, posix.MSG.NOSIGNAL);
++            if (n <= 0) return error.CacheWrite;
++            off += @intCast(n);
++        }
++    }
++
++    fn recvAll(s: *const StateStream, data: []u8) !void {
++        var off: usize = 0;
++        while (off < data.len) {
++            const n = posix.read(s.fd, data[off..]) catch return error.CacheRead;
++            if (n == 0) return error.CacheRead;
++            off += n;
++        }
++    }
++
++    fn request(s: *const StateStream, command: Command, page: usize, len: usize) !void {
++        var header: [header_bytes + key_bytes]u8 = @splat(0);
++        const values = [_]u32{ @intFromEnum(command), @intCast(len), binary_buffer, uint8_dtype, 0, @intCast(len), 0, 0, 0 };
++        for (values, 0..) |v, i| std.mem.writeInt(u32, header[i * 4 ..][0..4], v, .little);
++        const key = header[header_bytes..];
++        @memset(key, ' ');
++        _ = try std.fmt.bufPrint(key, "tf-glm53-v1-{x:0>16}@{d}@{d}@{s}{x:0>8}@uint8", .{
++            s.identity, s.world, s.rank, &s.digest, page,
++        });
++        try s.sendAll(&header);
++    }
++
++    fn reply(s: *const StateStream, len: usize) !void {
++        var header: [header_bytes]u8 = undefined;
++        try s.recvAll(&header);
++        switch (std.mem.readInt(u32, header[0..4], .little)) {
++            success => {},
++            400 => return error.CacheMiss,
++            else => return error.CacheProtocol,
++        }
++        if (std.mem.readInt(u32, header[4..8], .little) != len) return error.CacheProtocol;
++        if (len != 0 and (std.mem.readInt(u32, header[8..12], .little) != binary_buffer or
++            std.mem.readInt(u32, header[12..16], .little) != uint8_dtype)) return error.CacheProtocol;
++    }
++
++    pub fn writeAll(s: *StateStream, data: []const u8) !void {
++        if (data.len > s.total - s.written) return error.BadCacheSize;
++        var off: usize = 0;
++        while (off < data.len) {
++            const page = s.written / chunk_bytes;
++            const start = page * chunk_bytes;
++            const size = @min(chunk_bytes, s.total - start);
++            const index = s.written - start;
++            const n = @min(data.len - off, size - index);
++            @memcpy(s.buf[index..][0..n], data[off..][0..n]);
++            off += n;
++            s.written += n;
++            if (index + n == size) {
++                try s.request(.put, page, size);
++                try s.sendAll(s.buf[0..size]);
++                try s.request(.exists, page, 0);
++                try s.reply(0);
++            }
++        }
++    }
++
++    pub fn finish(s: *const StateStream) !void {
++        if (s.written != s.total) return error.BadCacheSize;
++    }
++
++    pub fn readAt(s: *StateStream, data: []u8, offset: u64) !void {
++        if (offset > s.total or data.len > s.total - offset) return error.BadCacheSize;
++        var off: usize = 0;
++        while (off < data.len) {
++            const pos: usize = @as(usize, @intCast(offset)) + off;
++            const page = pos / chunk_bytes;
++            const start = page * chunk_bytes;
++            const size = @min(chunk_bytes, s.total - start);
++            if (s.loaded != page) {
++                try s.request(.get, page, 0);
++                try s.reply(size);
++                try s.recvAll(s.buf[0..size]);
++                s.loaded = page;
++            }
++            const index = pos - start;
++            const n = @min(data.len - off, size - index);
++            @memcpy(data[off..][0..n], s.buf[index..][0..n]);
++            off += n;
++        }
++    }
++};
+diff --git a/zig/tests/cuda/glm53_generate.zig b/zig/tests/cuda/glm53_generate.zig
+index 0c8fd3810c64ad972914e5fd43c6f66d2d81db28..5191af3321c777ef8bfd8c6fe5dfc093f0abced4 100644
+--- a/zig/tests/cuda/glm53_generate.zig
++++ b/zig/tests/cuda/glm53_generate.zig
+@@ -1117,7 +1117,8 @@ fn listVariants(gpa: std.mem.Allocator, io: std.Io, a: Args) !u8 {
+     // Phase 4c: N x max(k + 1, the drafters' rows) with drafters, and their concurrent passes
+     const fr: usize = if (a.parallel > 1) try glm.multi.drafterRows(a.parallel, dspecs[0..n_dspecs]) else 0;
+     const rows_windows: usize = if (a.parallel > 1) try glm.multi.windowRowsWith(a.parallel, a.k, fr) else 0;
+-    const sp: cov.Space = .{ .cfg = cfg, .world = a.world, .heads = cfg.heads / a.world, .vocab_part = cfg.vocab / a.world, .kva_n = kva_n, .max_rows = @max(@max(a.prompt_rows, a.window), @max(a.k + 1, 32)), .capacity = a.context, .dcps = dcps, .widths = widths.items, .gemms = gemms.items, .mtp = cfg.mtp_layers > 0, .draft = a.draft_vocab > 0, .drafters = dspecs[0..n_dspecs], .rows_windows = rows_windows, .streams = a.parallel };
++    const fp8_kv = if (std.c.getenv("TF_GLM53_FP8_KV")) |v| std.mem.eql(u8, std.mem.span(v), "1") else false;
++    const sp: cov.Space = .{ .cfg = cfg, .world = a.world, .heads = cfg.heads / a.world, .vocab_part = cfg.vocab / a.world, .kva_n = kva_n, .max_rows = @max(@max(a.prompt_rows, a.window), @max(a.k + 1, 32)), .capacity = a.context, .dcps = dcps, .fp8_kv = fp8_kv, .widths = widths.items, .gemms = gemms.items, .mtp = cfg.mtp_layers > 0, .draft = a.draft_vocab > 0, .drafters = dspecs[0..n_dspecs], .rows_windows = rows_windows, .streams = a.parallel };
+     var p = cuda.aot.Probe.init(gpa);
+     defer p.deinit();
+     try cov.enumerate(&p, sp);
+@@ -1752,12 +1753,12 @@ fn concurrent4b(gpa: std.mem.Allocator, io: std.Io, mu: *glm.multi.Multi, mode:
+     var sids: [glm.multi.max_streams]u32 = undefined;
+     const t0 = now(io);
+     for (idx, 0..) |pi, i| {
+-        const c = try mu.choose(prompts[pi].ids, true);
+-        defer c.deinit(gpa);
+         const sid = mu.next_sid;
+         const limit = mu.r.capacity - mu.k - 1; // Glm53Engine.limit: the count within what is left after the prompt
+         if (prompts[pi].ids.len >= limit) return error.PromptTooLong;
+         const n_tok = @max(1, @min(count, limit - prompts[pi].ids.len));
++        const c = try mu.choose(prompts[pi].ids, n_tok, true);
++        defer c.deinit(gpa);
+         _ = try mu.admit(.{ .sid = sid, .slot = c.slot, .mode = mode, .sampling = samps[i], .count = n_tok, .prompt = prompts[pi].ids, .eos = eos, .begin = c.begin, .src = c.src, .stops = c.stops, .keeps = c.keeps });
+         sids[i] = sid;
+     }
