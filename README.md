@@ -90,7 +90,7 @@ At four concurrent requests, the target model accepted 64.5% of prose drafts and
 
 ## Shared-pool prefill performance
 
-For prompts of up to 65,536 tokens, the shared FP8 preset can split prefill into two microbatches. For each layer it gathers the request's compressed prefix KV once, appends the current rows in BF16 for attention, and writes the new rows to the request's FP8 DCP shard. Chunks with too few rows for sequence parallelism and prompts beyond the limit use the existing gathered prefill path.
+The shared FP8 preset can split eligible prefill chunks into two microbatches throughout the model's context window. They reuse the same index score and top-k scratch on the communication stream. Each layer gathers the request's compressed prefix KV once, appends the current rows in BF16 for attention, and writes the new rows to the request's FP8 DCP shard. For chunks of up to 32 new tokens following at least 65,536 cached or previously filled positions, the ranks score their local index keys, merge the global top-k, and combine their attention results. This path avoids gathering the full prefix KV.
 
 Each row compares the same cold prompt before and after the prefill change with DSpark enabled, four SM120 GPUs, DCP4 and a 728,888-token shared pool. Both runs returned the expected verification code. Throughput divides input tokens by the rank-0 prefill time.
 
@@ -101,7 +101,25 @@ Each row compares the same cold prompt before and after the prefill change with 
 | 32,042 | 2,089 | 3,108 | +48.8% |
 | 64,040 | 2,011 | 2,906 | +44.5% |
 
-The revised preset passed the four-request and cross-slot prefix checks. A follow-up using the same system prefix restored 10,417 of 10,439 tokens. A 66,030-token prompt also returned the expected code through the existing gathered path. Each GPU had 1,362 MiB free after graph capture.
+The initial sequence-parallel change passed the four-request and cross-slot prefix checks. A follow-up using the same system prefix restored 10,417 of 10,439 tokens.
+
+The next measurements compare the 65,536-token cutoff with sequence-parallel prefill enabled across the full pool. Both versions used DCP4, FP8 KV and DSpark on the same four GPUs. Each cell is a single run using the same synthetic prompt per version. All requests returned their expected code with zero eager decode steps.
+
+| Cold input tokens | With cutoff (tok/s) | Full-pool SP (tok/s) | Change |
+| ---: | ---: | ---: | ---: |
+| 66,038 | 2,007 | 2,895 | +44.3% |
+| 131,039 | 1,863 | 2,621 | +40.6% |
+| 262,119 | 1,544 | 2,085 | +35.1% |
+
+| New tokens after a 66,016-token cache hit | With cutoff (prefill) | Full-pool SP (prefill) |
+| ---: | ---: | ---: |
+| 22 | 0.31 s | 0.11 s |
+| 1,022 | 0.82 s | 0.69 s |
+| 8,020 | 4.80 s | 3.22 s |
+
+Near the 728,888-token pool limit, a 700,036-token cold prompt took 564.69 s (1,240 tok/s). A follow-up restored 700,016 tokens, filled the remaining 20 in 0.11 s, and returned first content in 0.13 s. Both requests returned their expected code with zero eager decode steps.
+
+The updated build passed the four-request and cross-slot prefix checks with about 1.26 GiB free per GPU after CUDA Graph capture. Prefill throughput still decreases with context length as each chunk scores and gathers a longer prefix. The comparison tables use two DCP4 builds. A same-length DCP1 result is unavailable.
 
 ## Shared-pool validation without DSpark
 

@@ -749,7 +749,7 @@ index 432122c..3c83ff6 100644
          if (small) {
              try f.dcpGather(b.osend, b.orecv, G * R * H * lw * 2, G * R * H * lw, .bf16, true);
 diff --git a/zig/src/families/glm_moe_dsa/cuda_multi.zig b/zig/src/families/glm_moe_dsa/cuda_multi.zig
-index 6e45e3c..6157ec6 100644
+index 6e45e3c..0c5ce5a 100644
 --- a/zig/src/families/glm_moe_dsa/cuda_multi.zig
 +++ b/zig/src/families/glm_moe_dsa/cuda_multi.zig
 @@ -56,6 +56,7 @@ const smp = @import("sampling.zig");
@@ -982,7 +982,7 @@ index 6e45e3c..6157ec6 100644
          errdefer mu.gpa.free(s.named);
 -        const rows = mu.r.set.prompt_rows;
 -        const short = mu.r.set.prompt_rows_short;
-+        const rows = mu.r.sharedPrefillRows(L) orelse mu.r.set.prompt_rows;
++        const rows = mu.r.sharedPrefillRows() orelse mu.r.set.prompt_rows;
 +        const short = @min(mu.r.set.prompt_rows_short, rows);
          if (a.begin >= L) {
              if (a.begin != L) return error.Invalid;
@@ -1051,7 +1051,7 @@ index 6e45e3c..6157ec6 100644
              }
              try mu.upload(&t);
 diff --git a/zig/src/families/glm_moe_dsa/cuda_prompt.zig b/zig/src/families/glm_moe_dsa/cuda_prompt.zig
-index 8b72cb3..ef97553 100644
+index 8b72cb3..3f521f7 100644
 --- a/zig/src/families/glm_moe_dsa/cuda_prompt.zig
 +++ b/zig/src/families/glm_moe_dsa/cuda_prompt.zig
 @@ -300,7 +300,9 @@ pub const min_overlap_rows: usize = 2 * fw.max_rows + 2;
@@ -1097,7 +1097,7 @@ index 8b72cb3..ef97553 100644
                  try sp.chain(h, st, .after_attn, li, T);
              }
              for (&hs) |*h| {
-@@ -503,13 +506,31 @@ pub const Sp = struct {
+@@ -503,13 +506,40 @@ pub const Sp = struct {
          try f.pend(p1, .ag);
          const p2 = try f.pbegin();
          const m: tri.Mla = .{ .heads = w.heads, .nope = c.nope, .rope = c.rope, .lw = c.kv_lora, .vd = c.v_dim, .topk = c.index_topk };
@@ -1128,7 +1128,16 @@ index 8b72cb3..ef97553 100644
          const tt = T orelse return;
          const p3 = try f.pbegin();
 -        try f.select(b, st.ic[li], h.pos, o, n, tt);
-+        try f.select(b, index, h.pos, o, n, tt);
++        if (st.dcp > 1 and h.i != 0) {
++            // Selection is sequential on the comm stream. Only its result rows belong to this half.
++            var selection = b.*;
++            selection.sc = h.prefill.sc;
++            selection.score_cols = h.prefill.score_cols;
++            selection.tsel = h.prefill.tsel;
++            try f.select(&selection, index, h.pos, o, n, tt);
++        } else {
++            try f.select(b, index, h.pos, o, n, tt);
++        }
          try f.pend(p3, .select);
          bufs[0] = b.tok;
          re[0] = c.index_topk;
@@ -1172,7 +1181,7 @@ index 8d71b47..2b15ea5 100644
      }
  
 diff --git a/zig/src/families/glm_moe_dsa/cuda_runner.zig b/zig/src/families/glm_moe_dsa/cuda_runner.zig
-index 317e726..e88eff2 100644
+index 317e726..eef1a37 100644
 --- a/zig/src/families/glm_moe_dsa/cuda_runner.zig
 +++ b/zig/src/families/glm_moe_dsa/cuda_runner.zig
 @@ -37,6 +37,10 @@ const draft = @import("cuda_draft.zig");
@@ -1180,8 +1189,8 @@ index 317e726..e88eff2 100644
  const copies = @import("copies.zig");
  
 +const short_kv_limit: usize = 512;
-+const shared_sp_prompt_limit: usize = 65536;
 +const shared_sp_chunk_limit: usize = 4096;
++const shard_prefill_min_history: usize = 65536;
 +
  pub const Settings = struct {
      /// MTP drafts a round the buffers and graphs are built for (a request may ask fewer; 0: serial only)
@@ -1227,7 +1236,7 @@ index 317e726..e88eff2 100644
              set.prompt_rows = @min(set.prompt_rows, 1024);
              set.prompt_rows_short = @min(set.prompt_rows_short, set.prompt_rows);
          }
-@@ -312,22 +327,49 @@ pub const Runner = struct {
+@@ -312,22 +327,50 @@ pub const Runner = struct {
          r.mrows = mrows;
          r.copy_on = copy_on;
          r.solo_feed = true;
@@ -1261,7 +1270,7 @@ index 317e726..e88eff2 100644
 +            (set.dcp == 1 or shared_sp or (set.dcp_prefill_gather and set.slots == 1)))
 +        {
 +            const sp_rows = if (shared_sp) @min(set.prompt_rows, shared_sp_chunk_limit) else set.prompt_rows;
-+            const sp_capacity = if (shared_sp) @min(capacity, shared_sp_prompt_limit) else if (set.dcp_prefill_gather) @min(capacity, 32768) else @max(capacity, 1);
++            const sp_capacity = if (shared_sp) 1 else if (set.dcp_prefill_gather) @min(capacity, 32768) else @max(capacity, 1);
 +            r.pb1 = try fw.Buffers.initWith(gpa, d, w, sp_rows - sp_rows / 2, sp_capacity,
 +                .{ .prompt = true, .shared_experts = shared, .taps = taps });
              r.sp = set.sp;
@@ -1278,11 +1287,12 @@ index 317e726..e88eff2 100644
 +            cache.deinit();
 +            gpa.free(r.replicated_ids);
 +        };
-+        r.vb = try fw.Buffers.initWith(gpa, d, w, wrows, cols, .{ .decode = true, .shared_experts = shared, .dcp = set.dcp, .short_kv_rows = if (set.dcp_short_kv) short_kv_limit else 0, .taps = taps });
++        const verify_rows = if (set.shared_kv) fw.decode_rows else wrows;
++        r.vb = try fw.Buffers.initWith(gpa, d, w, verify_rows, cols, .{ .decode = true, .shared_experts = shared, .dcp = set.dcp, .short_kv_rows = if (set.dcp_short_kv) short_kv_limit else 0, .taps = taps });
          errdefer r.vb.deinit();
          r.mb = null;
          if (set.k > 0) r.mb = try fw.Buffers.initWith(gpa, d, w, @max(@max(set.k + 1, vrows), crows), cols, .{ .decode = true, .mtp = true, .shared_experts = shared, .dcp = set.dcp });
-@@ -356,6 +398,10 @@ pub const Runner = struct {
+@@ -356,6 +399,10 @@ pub const Runner = struct {
          if (r.ids_dev) |*b| b.free();
          if (r.health) |*b| b.free();
          if (r.pb1) |*b| b.deinit();
@@ -1293,7 +1303,7 @@ index 317e726..e88eff2 100644
          r.pin.free();
          r.carry.free();
          if (r.mb) |*m| m.deinit();
-@@ -445,16 +491,23 @@ pub const Runner = struct {
+@@ -445,16 +492,23 @@ pub const Runner = struct {
          R: usize,
          T: ?usize,
          pick: Pick,
@@ -1320,7 +1330,7 @@ index 317e726..e88eff2 100644
      }
  
      const MtpCtx = struct {
-@@ -530,6 +583,16 @@ pub const Runner = struct {
+@@ -530,6 +584,16 @@ pub const Runner = struct {
                  if (!r.hasWidth(R)) continue;
                  try r.verify(R, 0, T, .argmax);
                  try r.verify(R, 0, T, .local);
@@ -1337,7 +1347,7 @@ index 317e726..e88eff2 100644
              }
              if (r.set.k > 0) {
                  for (1..r.mrows + 1) |m| try r.mtp(m, 1, 0, T, 0);
-@@ -782,13 +845,17 @@ pub const Runner = struct {
+@@ -782,13 +846,17 @@ pub const Runner = struct {
      /// device once, and each chunk takes its rows there (no host step between chunks).
      /// Phase 3b: rows from `begin` (a kept state's rows and carry already in place), the chunks cut at `cuts`
      /// (prefixes.cut_chunks), `keep` called at each cut inside (begin, L0) once its chunk is queued and at L0 with the
@@ -1357,7 +1367,7 @@ index 317e726..e88eff2 100644
          const chunks = try cutChunks(r.gpa, begin, L0, cuts, rows, short);
          defer r.gpa.free(chunks);
          const head: fw.HeadMode = if (s == null) .argmax else .local;
-@@ -825,6 +892,10 @@ pub const Runner = struct {
+@@ -825,6 +893,10 @@ pub const Runner = struct {
              p.on = false; // the prompt only: decode windows are never timed (nor captured with events in them)
          }
          if (keep) |k| try k.at(L0, hb.lg); // Runner.generate: keep(L0, lg) before the first pick moves anything
@@ -1368,27 +1378,38 @@ index 317e726..e88eff2 100644
          return r.pickFirst(hb, L0, s);
      }
  
-@@ -843,6 +914,11 @@ pub const Runner = struct {
+@@ -843,6 +915,11 @@ pub const Runner = struct {
          return word[0] != 0;
      }
  
-+    pub fn sharedPrefillRows(r: *const Runner, prompt_len: usize) ?usize {
-+        if (!r.set.shared_kv or r.sp == null or prompt_len > shared_sp_prompt_limit) return null;
++    pub fn sharedPrefillRows(r: *const Runner) ?usize {
++        if (!r.set.shared_kv or r.sp == null) return null;
 +        return @min(r.set.prompt_rows, shared_sp_chunk_limit);
 +    }
 +
      /// One prompt chunk [a, e) of prompt_ids (L0 = its length) into the caches of `st` (the Runner's State, or one
      /// stream's slot view: Runner.prefill_chunk(st, ...)) through the target and, when the runner drafts, the MTP
      /// layer; the served path takes the chunk's ids from the device copy of the prompt (uploaded by the caller). The
-@@ -861,11 +937,14 @@ pub const Runner = struct {
+@@ -855,17 +932,23 @@ pub const Runner = struct {
+         const t_chunk = r.now();
+         const T: ?usize = if (e > r.topk) e else null;
+         const last = e == L0;
++        // Narrow extensions of a long prefix can use the same distributed top-k and attention as decode.
++        const sharded = r.set.shared_kv and a >= shard_prefill_min_history and R <= r.vb.rows;
++        const b = if (sharded) &r.vb else &r.pb;
+         var hb: ?*const fw.Buffers = null;
+         if (r.set.served) {
+-            try r.ops().copy(r.pb.ids, r.ids_dev.?.ptr + a * 8, R * 8);
++            try r.ops().copy(b.ids, r.ids_dev.?.ptr + a * 8, R * 8);
          } else {
-             try r.uploadIds(r.pb.ids, prompt_ids[a..e]);
+-            try r.uploadIds(r.pb.ids, prompt_ids[a..e]);
++            try r.uploadIds(b.ids, prompt_ids[a..e]);
          }
 -        try r.setI32(st.pos, a);
 -        const sp_ok = if (r.sp != null and r.pb1 != null and r.set.dcp == 1) R >= prompt.min_overlap_rows and prompt.spFits(r.w.world, r.pb.rows, r.pb1.?.rows, R) else false;
 +        const active_cache = if (r.replicated_prefill) &r.replicated_cache.? else st;
 +        try r.setI32(active_cache.pos, a);
-+        const sp_ok = if (r.sp != null and r.pb1 != null and (r.set.dcp == 1 or r.replicated_prefill or R <= (r.sharedPrefillRows(L0) orelse 0)))
++        const sp_ok = if (r.sp != null and r.pb1 != null and (r.set.dcp == 1 or r.replicated_prefill or R <= (r.sharedPrefillRows() orelse 0)))
 +            R >= prompt.min_overlap_rows and prompt.spFits(r.w.world, r.pb.rows, r.pb1.?.rows, R)
 +        else false;
          if (sp_ok) {
@@ -1398,26 +1419,28 @@ index 317e726..e88eff2 100644
              if (last) {
                  const hR = R / 2;
                  const p0 = try r.f.pbegin();
-@@ -874,9 +953,17 @@ pub const Runner = struct {
+@@ -874,9 +957,18 @@ pub const Runner = struct {
                  hb = b1;
              }
          } else {
 -            try r.f.compute(&r.pb, st, R, T, if (last) head else .none, true);
+-            if (last) hb = &r.pb;
 +            var forward = r.f;
 +            if (r.replicated_prefill) {
 +                forward.dcp = 1;
 +                forward.fp8_kv = false;
-+            } else if (r.set.dcp_prefill_gather) {
++            } else if (r.set.dcp_prefill_gather and !sharded) {
 +                forward.prefill_end = e;
 +            }
-+            try forward.compute(&r.pb, active_cache, R, T, if (last) head else .none, true);
-             if (last) hb = &r.pb;
++            try forward.compute(b, active_cache, R, T, if (last) head else .none, true);
++            if (sharded and b.taps != 0) try r.ops().copy(r.pb.taps, b.taps, R * b.tap_n * D * 2);
++            if (last) hb = b;
          }
 +        if (r.replicated_prefill) try r.writePrefilledShard(active_cache, st, a, e);
          if (r.solo_feed) try r.feedPrompt(&r.pb, a, e, L0); // prefill_chunk: the drafters' contexts take this chunk's taps
          if (r.set.k > 0) try r.mtpPrompt(st, prompt_ids, a, e, T);
          if (!r.set.served) try r.f.s.synchronize(); // the pinned ids are reused by the next chunk
-@@ -890,6 +977,27 @@ pub const Runner = struct {
+@@ -890,6 +982,27 @@ pub const Runner = struct {
          return hb;
      }
  
