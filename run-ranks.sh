@@ -28,7 +28,7 @@ for rank in 0 1 2 3; do
         learn_args=(--learn-dir "$learn_dir" --learn-gib 4)
     fi
     TF_GLM53_RANK=$rank TF_GLM53_DEVICE=$rank TF_GLM53_TILES=/port/ref/tiles-r$rank.json \
-        "$native" serve /model --host 127.0.0.1 --port "$port" --name model \
+        "$native" serve /model --host ${TF_GLM53_HOST:-0.0.0.0} --port "$port" --name GLM5.3 \
         --context "$context" --parallel "$parallel" --thinking --reasoning-effort high --no-update-check "${learn_args[@]}" \
         >"/rank-logs/rank-$rank.log" 2>&1 &
     pids+=("$!")

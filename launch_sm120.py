@@ -19,7 +19,7 @@ IMAGE = os.environ.get(
     "TF_SM120_IMAGE",
     "docker.io/voipmonitor/vllm@sha256:820181fbbc975cd5291c411cda9771d58fecee1636d916f508f47230df20592b",
 )
-PORT = 18992
+PORT = 5033
 MASTER_PORT = 29681
 CONTAINER = "keys-glm53-sm120"
 RANK_LOGS = ROOT / "rank-logs"
@@ -92,6 +92,37 @@ PRESETS = {
         "build-dcp4-fp8-shared/native/bin/tensorfold-native", gather_prefill=True,
         decode_packed=True, fp8_kv=True, dcp_streams_reserve_gib=18, shared_kv=True,
     ),
+    "dcp4-fp8-shared-dspark-64k": Preset(
+        "GLM5.3", ROOT / "rank-logs-dcp4-fp8-shared-dspark-64k",
+        "aot-sm120-dcp4-fp8-shared-dspark/pack", 65536, 4, 4, 8192,
+        "build-dcp4-fp8-shared/native/bin/tensorfold-native", gather_prefill=True,
+        decode_packed=True, fp8_kv=True, dcp_streams_reserve_gib=18, shared_kv=True,
+    ),
+    "dcp4-fp8-shared-dspark-64k-a2a": Preset(
+        "keys-glm53-sm120-dcp4-fp8-shared-dspark-64k-a2a", ROOT / "rank-logs-dcp4-fp8-shared-dspark-64k-a2a",
+        "aot-sm120-dcp4-fp8-shared-dspark-a2a/pack", 65536, 4, 4, 8192,
+        "build-dcp4-fp8-shared/native/bin/tensorfold-native", gather_prefill=True,
+        decode_packed=True, decode_a2a=True, fp8_kv=True,
+        dcp_streams_reserve_gib=18, shared_kv=True,
+    ),
+    "dcp4-fp8-shared-dspark-2m": Preset(
+        "GLM5.3", ROOT / "rank-logs-dcp4-fp8-shared-dspark-64k",
+        "aot-sm120-dcp4-fp8-shared-dspark/pack", 1048576, 4, 4, 8192,
+        "build-dcp4-fp8-shared/native/bin/tensorfold-native", gather_prefill=True,
+        decode_packed=True, fp8_kv=True, dcp_streams_reserve_gib=3, shared_kv=True,
+    ),
+    "dcp4-fp8-shared-dspark-512k": Preset(
+        "GLM5.3", ROOT / "rank-logs-dcp4-fp8-shared-dspark-64k",
+        "aot-sm120-dcp4-fp8-shared-dspark/pack", 524288, 4, 4, 8192,
+        "build-dcp4-fp8-shared/native/bin/tensorfold-native", gather_prefill=True,
+        decode_packed=True, fp8_kv=True, dcp_streams_reserve_gib=18, shared_kv=True,
+    ),
+    "dcp4-fp8-shared-dspark-256k": Preset(
+        "keys-glm53-sm120-dcp4-fp8-shared-dspark-256k", ROOT / "rank-logs-dcp4-fp8-shared-dspark-256k",
+        "aot-sm120-dcp4-fp8-shared-dspark/pack", 262144, 4, 4, 8192,
+        "build-dcp4-fp8-shared/native/bin/tensorfold-native", gather_prefill=True,
+        decode_packed=True, fp8_kv=True, dcp_streams_reserve_gib=18, shared_kv=True,
+    ),
 }
 
 
@@ -126,8 +157,11 @@ def preflight(preset=PRESETS["dcp1"]):
     containers = set(run("docker", "ps", "-a", "--format", "{{.Names}}", capture=True).splitlines())
     if preset.container in containers:
         raise RuntimeError("A port test container already exists")
-    inventory = run("nvidia-smi", "--query-gpu=uuid,compute_cap,memory.used",
-                    "--format=csv,noheader,nounits", capture=True)
+    _ids = os.environ.get("TF_SM120_GPUS", "")
+    _args = ["--query-gpu=uuid,compute_cap,memory.used", "--format=csv,noheader,nounits"]
+    if _ids:
+        _args += ["-i", _ids]
+    inventory = run("nvidia-smi", *_args, capture=True)
     devices = [tuple(field.strip() for field in row.split(",")) for row in inventory.splitlines()]
     if len(devices) != 4 or any(cap != "12.0" or int(used) > 256 for _, cap, used in devices):
         raise RuntimeError("Four idle SM120 GPUs required")
@@ -173,7 +207,7 @@ def start(devices, preset=PRESETS["dcp1"]):
         "TF_GLM53_PROMPT_ROWS": str(preset.prompt_rows),
         "TF_GLM53_PROMPT_ROWS_SHORT": str(preset.prompt_rows if preset.gather_prefill else min(4096, preset.prompt_rows)),
         "TF_GLM53_K": "0",
-        "TF_GLM53_GRAPHS": "1",
+        "TF_GLM53_GRAPHS": os.environ.get("TF_GLM53_GRAPHS", "1"),
         "TF_GLM53_PREWARM": "1",
         "TF_GLM53_PROMPT_REUSE": "1",
         "TF_GLM53_REUSE_STRIDE": "4096",
@@ -182,6 +216,8 @@ def start(devices, preset=PRESETS["dcp1"]):
         "TF_GLM53_TIMEOUT": "1200",
         "NCCL_IB_DISABLE": "1",
         "NCCL_SOCKET_IFNAME": "=lo",
+        "NCCL_MIN_NCHANNELS": "8",
+        "NCCL_MAX_NCHANNELS": "8",
         "NCCL_DEBUG": "INFO",
         "NCCL_DEBUG_SUBSYS": "INIT,GRAPH,P2P",
     }
@@ -200,10 +236,20 @@ def start(devices, preset=PRESETS["dcp1"]):
         start_lmcache(preset.lmcache_port)
         env["TF_GLM53_LMCACHE_PORT"] = str(preset.lmcache_port)
         env["TF_GLM53_FLUSH_FILE"] = "/rank-logs/.flush-gpu-prefix"
+    for _k in ("TF_GLM53_DCP_DECODE_A2A", "NCCL_PROTO", "NCCL_MIN_NCHANNELS",
+               "NCCL_MAX_NCHANNELS", "NCCL_BUFFSIZE", "NCCL_NCHANNELS_PER_NET_PEER",
+               "TF_GLM53_PROMPT_ROWS", "TF_GLM53_DCP_DECODE_PACKED",
+               "TF_GLM53_DSPARK_DEPTH", "TF_GLM53_DSPARK_CONFIDENCE",
+               "TF_GLM53_VERIFY_ROWS", "TF_GLM53_PROMPT_SP",
+               "TF_GLM53_QUICK_ROWS", "TF_GLM53_UNPACK_MB", "TF_GLM53_PROMPT_REUSE",
+               "TF_GLM53_REUSE_STRIDE"):
+        if _k in os.environ:
+            env[_k] = os.environ[_k]
     flags = [arg for key, value in env.items() for arg in ("-e", f"{key}={value}")]
     preset.rank_logs.mkdir(mode=0o700, exist_ok=True)
     run("docker", "run", "-d", "--name", preset.container, "--init", "--network", "host", "--shm-size", "2g",
-        "--gpus", "all", "-v", f"{ROOT}:/port:ro", "-v", f"{MODEL}:/model:ro",
+        "--gpus", (('"device=%s"' % os.environ["TF_SM120_GPUS"]) if os.environ.get("TF_SM120_GPUS") else "all"),
+        "-v", f"{ROOT}:/port:ro", "-v", f"{MODEL}:/model:ro",
         "-v", f"{preset.rank_logs}:/rank-logs",
         *flags, "--entrypoint", "/bin/bash", IMAGE, "/port/run-ranks.sh", str(PORT),
         str(preset.context), str(preset.parallel))
