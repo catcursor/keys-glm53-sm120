@@ -82,12 +82,20 @@ def _load_rows(LC, rows, valid, k, rope):
 
 @triton.jit
 def _unpack_kv_fp8(LC, DST, ROWS, PAD, DCP: tl.constexpr):
-    r = (tl.program_id(0) * 8 + tl.arange(0, 8)).to(tl.int64)
+    r = (tl.program_id(0) * 4 + tl.arange(0, 4)).to(tl.int64)
     valid = r < ROWS
     shard_row = (r % DCP) * PAD + r // DCP
     k = tl.arange(0, 512)
     rope = tl.arange(0, 64)
-    latent, key = _load_rows(LC, shard_row, valid, k, rope)
+    f32 = tl.cast(LC, tl.pointer_type(tl.float32))
+    bf16 = tl.cast(LC, tl.pointer_type(tl.bfloat16))
+    raw = tl.load(LC + shard_row[:, None] * 656 + k[None, :], valid[:, None], 0)
+    quantized = raw.to(tl.float8e4nv, bitcast=True).to(tl.float32)
+    # Load the four scales once per row and broadcast each over its 128 values.
+    group = tl.arange(0, 4)
+    scale = tl.load(f32 + shard_row[:, None] * 164 + 128 + group[None, :], valid[:, None], 0)
+    latent = tl.reshape(tl.reshape(quantized, (4, 4, 128)) * scale[:, :, None], (4, 512)).to(tl.bfloat16)
+    key = tl.load(bf16 + shard_row[:, None] * 328 + 264 + rope[None, :], valid[:, None], 0)
     tl.store(DST + r[:, None] * 576 + k[None, :], latent, valid[:, None])
     tl.store(DST + r[:, None] * 576 + 512 + rope[None, :], key, valid[:, None])
 

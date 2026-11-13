@@ -93,7 +93,7 @@ def main():
     def pack():
         for rank in range(world):
             _pack_kv_fp8[(len(rows[rank::world]),)](rows[rank:], shards[rank], 576 * world)
-        _unpack_kv_fp8[(triton.cdiv(n, 8),)](shards, restored, n, pad, world)
+        _unpack_kv_fp8[(triton.cdiv(n, 4),)](shards, restored, n, pad, world, num_warps=8)
 
     pack()
     torch.cuda.synchronize()
@@ -101,6 +101,13 @@ def main():
     with torch.cuda.graph(graph):
         pack()
     graph.replay()
+    # Reassemble rank-major rows independently, checking the exact BF16 values.
+    order = torch.arange(n, device=device)
+    payload = shards[order % world, order // world]
+    encoded = payload[:, :512].contiguous().view(torch.float8_e4m3fn).float()
+    scales = payload[:, 512:528].contiguous().view(torch.float32)
+    expected = (encoded.reshape(n, 4, 128) * scales.unsqueeze(-1)).reshape(n, 512).bfloat16()
+    torch.testing.assert_close(restored[:, :512], expected, atol=0, rtol=0)
     torch.testing.assert_close(restored[:, 512:], rows[:, 512:], atol=0, rtol=0)
     delta = restored[:, :512].float() - rows[:, :512].float()
     rms_relative = (delta.square().mean() / rows[:, :512].float().square().mean()).sqrt().item()

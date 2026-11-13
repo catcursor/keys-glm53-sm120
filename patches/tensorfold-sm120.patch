@@ -1335,7 +1335,7 @@ index 317e726376dd9da83566679b3c8105e0b42f5d2d..f2c3ae9576776e08e710beb7b401989a
      /// from its local logits (Runner.generate's `sample(lg, L0)`).
      pub fn pickFirst(r: *Runner, hb: *const fw.Buffers, L0: usize, s: ?smp.Sampling) !u32 {
 diff --git a/zig/src/families/glm_moe_dsa/cuda_triton.zig b/zig/src/families/glm_moe_dsa/cuda_triton.zig
-index 48c0d2fafdb21a093f6a6aab74e7f65a7f141106..1d370877d625561eb17009a8a7f31380c5661410 100644
+index 48c0d2fafdb21a093f6a6aab74e7f65a7f141106..2d6c036055a1608c732db47f163b2044541385b2 100644
 --- a/zig/src/families/glm_moe_dsa/cuda_triton.zig
 +++ b/zig/src/families/glm_moe_dsa/cuda_triton.zig
 @@ -119,6 +119,22 @@ pub const Tri = struct {
@@ -1355,7 +1355,7 @@ index 48c0d2fafdb21a093f6a6aab74e7f65a7f141106..1d370877d625561eb17009a8a7f31380
 +    }
 +
 +    pub fn unpackKvFp8(t: Tri, src: u64, dst: u64, rows: usize, padded: usize, dcp: usize) !void {
-+        try t.run("_unpack_kv_fp8", .{ cdiv(rows, 8), 1, 1 }, &.{ p("LC", "*u8", src), p("DST", "*bf16", dst), int("ROWS", rows), int("PAD", padded) }, &.{ ci("DCP", dcp) }, .{ .num_warps = 4 });
++        try t.run("_unpack_kv_fp8", .{ cdiv(rows, 4), 1, 1 }, &.{ p("LC", "*u8", src), p("DST", "*bf16", dst), int("ROWS", rows), int("PAD", padded) }, &.{ ci("DCP", dcp) }, .{ .num_warps = 8 });
 +    }
 +
      /// fused._ik_write: the index key's LayerNorm (fp32, bias) and RoPE on its first RD dims into IC[POS + r].
