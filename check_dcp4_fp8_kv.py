@@ -10,66 +10,9 @@ from dcp4_fp8_kv import (
     _attn_dcp_fp8_rows,
     _kv_write_fp8,
     _kv_write_fp8_rows,
-    _kv_sparse_mark,
-    _kv_sparse_offsets,
-    _kv_sparse_pack,
-    _kv_sparse_scan,
-    _kv_sparse_unpack,
     _pack_kv_fp8,
     _unpack_kv_fp8,
 )
-
-
-def check_sparse_gather():
-    world, end, rows, width, block = 4, 65537, 22, 576, 256
-    padded = triton.cdiv(end, world)
-    tiles = triton.cdiv(padded, block)
-    device = "cuda"
-    source = torch.randn((end + rows, width), dtype=torch.bfloat16, device=device)
-    shards = torch.empty((world, padded, 656), dtype=torch.uint8, device=device)
-    for rank in range(world):
-        _pack_kv_fp8[(len(source[rank:end:world]),)](source[rank:], shards[rank], world * width)
-    reference = source.clone()
-    _unpack_kv_fp8[(triton.cdiv(end, 8),)](shards, reference, end, padded, world)
-
-    candidates = torch.randint(end // world, (8_192,), device=device) * world
-    candidates[::3] += 2
-    candidates[0] = end - 1
-    tokens = candidates[torch.randint(len(candidates), (rows, 2048), device=device)].to(torch.int32)
-    tokens[:, -1] = end + torch.arange(rows, dtype=torch.int32, device=device)
-    selected = tokens[tokens < end].unique(sorted=True).long()
-    by_rank = [selected[selected % world == rank] // world for rank in range(world)]
-    pad = max(map(len, by_rank))
-    plan = torch.zeros(end, dtype=torch.int32, device=device)
-    offsets = torch.empty((world, tiles), dtype=torch.int32, device=device)
-    counts = torch.empty(world, dtype=torch.int32, device=device)
-    compact = torch.zeros((world, pad, 656), dtype=torch.uint8, device=device)
-    actual = source.clone()
-
-    def gather():
-        plan.zero_()
-        _kv_sparse_mark[(triton.cdiv(tokens.numel(), block),)](tokens, plan, tokens.numel(), end, block)
-        _kv_sparse_scan[(tiles, world)](plan, offsets, end, tiles, world, block)
-        _kv_sparse_offsets[(world,)](offsets, counts, tiles, 2048)
-        for rank in range(world):
-            _kv_sparse_pack[(triton.cdiv(padded, 8),)](
-                shards[rank], compact[rank], plan, offsets, end, tiles, rank, world, block)
-        _kv_sparse_unpack[(triton.cdiv(end, 8),)](
-            compact, actual, plan, offsets, end, pad, tiles, world, block)
-
-    gather()
-    torch.cuda.synchronize()
-    graph = torch.cuda.CUDAGraph()
-    with torch.cuda.graph(graph):
-        gather()
-    graph.replay()
-    assert counts.tolist() == list(map(len, by_rank))
-    for rank, local in enumerate(by_rank):
-        torch.testing.assert_close(compact[rank, :len(local)], shards[rank, local], rtol=0, atol=0)
-    expected = source.clone()
-    expected[selected] = reference[selected]
-    torch.testing.assert_close(actual, expected, rtol=0, atol=0)
-    print("Sparse FP8 gather restored the selected historical rows bit-for-bit and left all other rows intact.")
 
 
 def check_slot_offsets():
@@ -201,7 +144,6 @@ def main():
     print(f"CUDA Graph pack/unpack passed; RoPE bit exact; latent relative RMS error {rms_relative:.4%}")
     print(f"All DCP owners wrote expected bytes; sparse attention relative RMS difference {attention_rms:.4%}")
     check_slot_offsets()
-    check_sparse_gather()
 
 
 if __name__ == "__main__":

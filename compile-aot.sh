@@ -93,7 +93,6 @@ PY
         fi
         templates=(--template "$ref" --template "$root/ref-dcp4")
         export TF_GLM53_FP8_KV=1
-        export TF_GLM53_SHARED_KV=1
         ;;
     *) echo "Unknown kernel preset: $1" >&2; exit 2 ;;
 esac
