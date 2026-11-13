@@ -44,6 +44,7 @@ class Preset:
     dspark: bool = True
     dcp_streams_reserve_gib: int | None = None
     shared_kv: bool = False
+    owner_prefill: bool = False
 
 
 PRESETS = {
@@ -88,9 +89,9 @@ PRESETS = {
     ),
     "dcp4-fp8-shared-dspark": Preset(
         "keys-glm53-sm120-dcp4-fp8-shared-dspark", ROOT / "rank-logs-dcp4-fp8-shared-dspark",
-        "aot-sm120-dcp4-fp8-shared-dspark/pack", 728888, 4, 4, 8192,
+        "aot-sm120-dcp4-fp8-shared-dspark/pack", 685000, 4, 4, 8192,
         "build-dcp4-fp8-shared/native/bin/tensorfold-native", gather_prefill=True,
-        decode_packed=True, fp8_kv=True, dcp_streams_reserve_gib=18, shared_kv=True,
+        decode_packed=True, fp8_kv=True, dcp_streams_reserve_gib=18, shared_kv=True, owner_prefill=True,
     ),
 }
 
@@ -189,6 +190,10 @@ def start(devices, preset=PRESETS["dcp1"]):
         env["TF_GLM53_DCP_STREAMS"] = "1"
     if preset.shared_kv:
         env["TF_GLM53_SHARED_KV"] = "1"
+        env["TF_GLM53_PROMPT_SP"] = str(int(preset.owner_prefill))
+    if preset.owner_prefill:
+        env.update(TF_GLM53_PREFILL_OWNER_EXCHANGE="1", TF_GLM53_CLEAR_UNUSED_KV="1",
+                   TF_GLM53_PRECAPTURE="1", NCCL_PROTO="LL,LL128,Simple", NCCL_P2P_LEVEL="SYS")
     if preset.dcp_streams_reserve_gib is not None:
         env["TF_GLM53_DCP_STREAMS_RESERVE_GB"] = str(preset.dcp_streams_reserve_gib)
     if os.environ.get("TF_GLM53_ROUND_PROFILE") == "1":
@@ -236,6 +241,8 @@ def ready(preset=PRESETS["dcp1"]):
                 raise RuntimeError(f"Rank {rank} did not enable FP8 KV")
             if preset.shared_kv and f"{preset.context} tokens in one shared KV pool" not in logs:
                 raise RuntimeError(f"Rank {rank} did not enable the shared KV pool")
+            if preset.owner_prefill and f"rank {rank}: prefill owner exchange matches NCCL BF16" not in logs:
+                raise RuntimeError(f"Rank {rank} did not verify the prefill exchange against NCCL")
             if preset.dspark and f"glm53 rank {rank}: DSpark drafter " not in logs:
                 raise RuntimeError(f"Rank {rank} did not load DSpark")
             if rank == 0 and preset.lmcache_port and "LMCache: storing learned state payloads" not in logs:

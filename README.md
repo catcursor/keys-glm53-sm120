@@ -1,6 +1,6 @@
 # Keys GLM-5.3 EXL3 on four SM120 GPUs
 
-This project runs the **full Keys GLM-5.3 EXL3 2.75 BPW checkpoint** on one Linux host with four NVIDIA RTX PRO 6000 Blackwell GPUs. TensorFold serves the OpenAI-compatible API on rank 0 and runs one CUDA rank per GPU. The tested configuration combines tensor parallelism (TP4), decode context parallelism (DCP4), and a **728,888-token FP8 KV pool shared by up to four active requests**.
+This project runs the **full Keys GLM-5.3 EXL3 2.75 BPW checkpoint** on one Linux host with four NVIDIA RTX PRO 6000 Blackwell GPUs. TensorFold serves the OpenAI-compatible API on rank 0 and runs one CUDA rank per GPU. The tested configuration combines tensor parallelism (TP4), decode context parallelism (DCP4), and an **FP8 KV pool shared by up to four active requests**. The optimized DSpark preset exposes 685,000 tokens. The preset without DSpark exposes 728,888 tokens.
 
 ## Upstream sources
 
@@ -69,12 +69,24 @@ The kernel sweep must report zero missing variants. The launcher waits for all f
 ```bash
 python3 -B check_fp8_four_streams.py \
   --rank-log rank-logs-dcp4-fp8-shared-dspark/rank-0.log \
-  --no-round-profile --shared-context 728888
+  --no-round-profile --shared-context 685000
 ```
 
-## DSpark validation and decode performance
+## DSpark prefill validation
 
-On the four SM120 GPUs, the DSpark preset exposed the full 728,888-token shared pool and captured 663 CUDA Graphs per rank. The AOT coverage check resolved all 306 launch requirements. Four overlapping requests returned their own verification codes, and a separate test restored a 2,583-token prefix across slots. After startup each GPU had 2,702 MiB free.
+The optimized preset uses sequence-parallel prefill with a rank-local exchange and checks its BF16 output against NCCL 2.30.4 on all four ranks at startup. The measured server captured 663 CUDA Graphs per rank and reported zero eager decode steps.
+
+| Cold prompt | First run (tok/s) | Three repeat runs (tok/s) |
+| --- | ---: | ---: |
+| 16K | 3,190.5 | 3,108.7–3,175.0 |
+| 32K | 3,204.9 | 3,273.7–3,300.1 |
+| 66K | 3,111.1 | 3,128.9–3,143.8 |
+
+Short and 15K SQL checks passed in two runs, including a mixed workload. Four overlapping 10K prompts returned their expected answers with the shared FP8 KV cache. A warm request reused a 16,384-token prefix.
+
+## Earlier DSpark decode measurements
+
+On the four SM120 GPUs, the earlier DSpark preset exposed the full 728,888-token shared pool and captured 663 CUDA Graphs per rank. The AOT coverage check resolved all 306 launch requirements. Four overlapping requests returned their own verification codes, and a separate test restored a 2,583-token prefix across slots. After startup each GPU had 2,702 MiB free.
 
 Both presets were measured on the same host and checkpoint with DCP4 and the shared FP8 KV pool. Each result is one batch with short prompts (92–117 tokens) and 2,048 visible output tokens per request at temperature 0 with thinking disabled. Aggregate decode throughput is total output tokens divided by the time from the earliest first content to the latest last content across the batch. Each four-request batch generated 8,192 tokens. No requests queued and the decode logs reported zero eager steps.
 

@@ -87,12 +87,13 @@ PY
         dcp=0
         if [[ $1 == dcp4-fp8-shared-dspark ]]; then
             out=$work/aot-sm120-dcp4-fp8-shared-dspark
+            context=685001
         else
             out=$work/aot-sm120-dcp4-fp8-4streams
             draft_args=()
         fi
         templates=(--template "$ref" --template "$root/ref-dcp4")
-        export TF_GLM53_FP8_KV=1
+        export TF_GLM53_FP8_KV=1 TF_GLM53_SHARED_KV=1
         ;;
     *) echo "Unknown kernel preset: $1" >&2; exit 2 ;;
 esac

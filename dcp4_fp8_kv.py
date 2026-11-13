@@ -93,6 +93,65 @@ def _unpack_kv_fp8(LC, DST, ROWS, PAD, DCP: tl.constexpr):
 
 
 @triton.jit
+def _kv_sparse_mark(TOK, MAP, N, END, BLOCK: tl.constexpr):
+    i = tl.program_id(0) * BLOCK + tl.arange(0, BLOCK)
+    pos = tl.load(TOK + i, i < N, -1)
+    tl.atomic_or(MAP + pos, 1, (pos >= 0) & (pos < END), sem="relaxed")
+
+
+@triton.jit
+def _kv_sparse_scan(MAP, OFF, END, TILES, DCP: tl.constexpr, BLOCK: tl.constexpr):
+    tile, rank = tl.program_id(0), tl.program_id(1)
+    pos = (tile * BLOCK + tl.arange(0, BLOCK)) * DCP + rank
+    picked = tl.load(MAP + pos, pos < END, 0)
+    prefix = tl.cumsum(picked)
+    tl.store(MAP + pos, tl.where(picked != 0, prefix, 0), pos < END)
+    tl.store(OFF + rank * TILES + tile, tl.sum(picked))
+
+
+@triton.jit
+def _kv_sparse_offsets(OFF, LENS, TILES, BLOCK: tl.constexpr):
+    rank = tl.program_id(0)
+    tile = tl.arange(0, BLOCK)
+    off = OFF + rank * TILES + tile
+    count = tl.load(off, tile < TILES, 0)
+    tl.store(off, tl.cumsum(count) - count, tile < TILES)
+    tl.store(LENS + rank, tl.sum(count))
+
+
+@triton.jit
+def _kv_sparse_pack(LC, DST, MAP, OFF, END, TILES, RANK, DCP: tl.constexpr,
+                    SCAN: tl.constexpr):
+    local = tl.program_id(0) * 8 + tl.arange(0, 8)
+    pos = local * DCP + RANK
+    picked = tl.load(MAP + pos, pos < END, 0)
+    live = picked != 0
+    offset = tl.load(OFF + RANK * TILES + local // SCAN, live, 0)
+    dst = offset + picked - 1
+    col = tl.arange(0, 1024)
+    valid = live[:, None] & (col[None, :] < 656)
+    value = tl.load(LC + local[:, None] * 656 + col[None, :], valid, 0)
+    tl.store(DST + dst[:, None] * 656 + col[None, :], value, valid)
+
+
+@triton.jit
+def _kv_sparse_unpack(LC, DST, MAP, OFF, END, PAD, TILES, DCP: tl.constexpr,
+                      SCAN: tl.constexpr):
+    pos = tl.program_id(0) * 8 + tl.arange(0, 8)
+    rank = pos % DCP
+    local = pos // DCP
+    picked = tl.load(MAP + pos, pos < END, 0)
+    live = picked != 0
+    offset = tl.load(OFF + rank * TILES + local // SCAN, live, 0)
+    shard_row = rank * PAD + offset + picked - 1
+    k = tl.arange(0, 512)
+    rope = tl.arange(0, 64)
+    latent, key = _load_rows(LC, shard_row, live, k, rope)
+    tl.store(DST + pos[:, None] * 576 + k[None, :], latent, live[:, None])
+    tl.store(DST + pos[:, None] * 576 + 512 + rope[None, :], key, live[:, None])
+
+
+@triton.jit
 def _attn_dcp_fp8(QALL, LC, TOK, CNT, POS, PO, PM, PL, R, H: tl.constexpr,
                   G: tl.constexpr, LW: tl.constexpr, RD: tl.constexpr, K: tl.constexpr,
                   CHK: tl.constexpr, KTT: tl.constexpr, SCALE: tl.constexpr,
