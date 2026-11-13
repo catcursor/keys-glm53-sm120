@@ -1,6 +1,6 @@
 # Keys GLM-5.3 EXL3 on four SM120 GPUs
 
-This project runs the **full Keys GLM-5.3 EXL3 2.75 BPW checkpoint** on one Linux host with four NVIDIA RTX PRO 6000 Blackwell GPUs. TensorFold serves the OpenAI-compatible API on rank 0 and runs one CUDA rank per GPU. The tested configuration combines tensor parallelism (TP4), decode context parallelism (DCP4), and an **FP8 KV pool shared by up to four active requests**. The optimized DSpark preset exposes 685,000 tokens. The preset without DSpark exposes 728,888 tokens.
+This project runs the **full Keys GLM-5.3 EXL3 2.75 BPW checkpoint** on one Linux host with four **NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition** GPUs (SM120, 96 GB each, 300 W per card). TensorFold serves the OpenAI-compatible API on rank 0 and runs one CUDA rank per GPU. The measured DSpark preset uses tensor parallelism (TP4), decode context parallelism (DCP4), and a **685,000-token FP8 KV pool shared by up to four active requests**.
 
 ## Upstream sources
 
@@ -13,6 +13,7 @@ This project runs the **full Keys GLM-5.3 EXL3 2.75 BPW checkpoint** on one Linu
 | [NVIDIA CUDA and NCCL](https://developer.nvidia.com/nccl), [PyTorch](https://pytorch.org/), [Triton](https://github.com/triton-lang/triton), and [voipmonitor's CUDA image](https://hub.docker.com/r/voipmonitor/vllm) | Build/runtime environment. The local test image was derived from the pinned public image below. The service itself runs TensorFold's native binary. |
 | [DSpark ft2 at `681d43d`](https://huggingface.co/drowzeys/keys-GLM-5.3-speculator.dspark-ft2/tree/681d43db532b2f004d21c1d5ebe4aef5678d564f) | Speculative drafter for the shared FP8 KV pool. Each request has its own drafter state. |
 | [LMCache](https://github.com/LMCache/LMCache) | Used in the separate `dcp4-fp8-lmcache` preset. The shared presets use GPU prefix reuse. |
+| [Local Inference Lab PCIe bandwidth and P2P measurements](https://github.com/local-inference-lab/rtx6kpro/blob/master/hardware/pcie-bandwidth.md) | Hardware reference for PCIe peer-to-peer bandwidth, latency, BAR1, and the NVIDIA ForceP2P override. |
 
 The public repository contains source, a patch, and synthetic test results. Model weights, container layers, and compiled GPU kernels are obtained separately under their respective licenses. See [NOTICE](NOTICE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for upstream attributions.
 
@@ -26,7 +27,7 @@ The public repository contains source, a patch, and synthetic test results. Mode
 
 ## Reproduce on Linux
 
-Use an x86-64 host with four idle SM120 GPUs, a driver supporting CUDA 13.2, Docker with NVIDIA Container Toolkit, and enough local storage for the full gated checkpoint and build assets. The measured GPUs were RTX PRO 6000 Blackwell Max-Q Workstation Edition cards with 96 GB each. The scripts expect Bash, Git, and Python 3.11+.
+Use an x86-64 host with four idle SM120 GPUs, a driver supporting CUDA 13.2, Docker with NVIDIA Container Toolkit, and enough local storage for the full gated checkpoint and build assets. The scripts expect Bash, Git, and Python 3.11+.
 
 Accept the model's terms on Hugging Face and authenticate with the Hugging Face CLI before downloading the pinned checkpoint. From the root of this repository:
 
@@ -72,44 +73,27 @@ python3 -B check_fp8_four_streams.py \
   --no-round-profile --shared-context 685000
 ```
 
-## DSpark prefill validation
+## Latest DSpark performance
 
-The optimized preset uses sequence-parallel prefill with a rank-local exchange and checks its BF16 output against NCCL 2.30.4 on all four ranks at startup. The measured server captured 663 CUDA Graphs per rank and reported zero eager decode steps.
+Measured on November 13, 2026 with the shared FP8 KV and DSpark ft2 preset. All four Max-Q GPUs reported PCIe Gen5 ×16 links and a 300 W power limit. Resizable BAR and ForceP2P were enabled, BAR1 was 128 GiB per GPU, and the driver reported peer reads and writes available between every pair of GPUs. The prefill exchange passed the BF16 startup checks against NCCL 2.30.4. Each rank captured 663 CUDA Graphs.
 
-| Cold prompt | First run (tok/s) | Three repeat runs (tok/s) |
-| --- | ---: | ---: |
-| 16K | 3,190.5 | 3,108.7–3,175.0 |
-| 32K | 3,204.9 | 3,273.7–3,300.1 |
-| 66K | 3,111.1 | 3,128.9–3,143.8 |
+### Cold prefill
 
-Short and 15K SQL checks passed in two runs, including a mixed workload. Four overlapping 10K prompts returned their expected answers with the shared FP8 KV cache. A warm request reused a 16,384-token prefix.
+Two runs per prompt length. All six retrieval responses were correct, with zero cached input tokens and zero eager decode steps.
 
-## Earlier DSpark decode measurements
+| Prompt | Cold prefill (tok/s) |
+| --- | ---: |
+| 16K | 3,600.7–3,630.8 |
+| 32K | 3,592.9–3,665.5 |
+| 66K | 3,445.4–3,458.2 |
 
-On the four SM120 GPUs, the earlier DSpark preset exposed the full 728,888-token shared pool and captured 663 CUDA Graphs per rank. The AOT coverage check resolved all 306 launch requirements. Four overlapping requests returned their own verification codes, and a separate test restored a 2,583-token prefix across slots. After startup each GPU had 2,702 MiB free.
+### Long-form prose decode
 
-Both presets were measured on the same host and checkpoint with DCP4 and the shared FP8 KV pool. Each result is one batch with short prompts (92–117 tokens) and 2,048 visible output tokens per request at temperature 0 with thinking disabled. Aggregate decode throughput is total output tokens divided by the time from the earliest first content to the latest last content across the batch. Each four-request batch generated 8,192 tokens. No requests queued and the decode logs reported zero eager steps.
+Each request asked for a long English essay on a different topic. Prompts were 110–113 tokens, with temperature 0 and thinking disabled. Every request produced 2,048 visible output tokens. Aggregate decode throughput divides the batch's output tokens by the time from the first streamed text to the last streamed text. The four-request batch briefly queued during admission, then all four streams produced output concurrently for 33.6 seconds. The measured batches had zero eager decode steps.
 
-| Workload | Concurrent requests | Without DSpark (tok/s) | With DSpark (tok/s) | Change | With DSpark per request (tok/s) |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Prose | 1 | 47.4 | 65.7 | +38.7% | — |
-| Prose | 4 | 111.4 | 115.6 | +3.7% | 29.0–38.3 |
-| Code | 1 | 47.2 | 96.7 | +104.7% | — |
-| Code | 4 | 110.5 | 153.1 | +38.6% | 38.8–44.3 |
+| Concurrent requests | Total output tokens | Decode interval (s) | Aggregate decode (tok/s) | Per-request decode (tok/s) |
+| ---: | ---: | ---: | ---: | ---: |
+| 1 | 2,048 | 19.23 | 106.5 | 106.5 |
+| 4 | 8,192 | 50.56 | 162.0 | 41.0–60.2 |
 
-At four concurrent requests, the target model accepted 64.5% of prose drafts and 82.5% of code drafts.
-
-## Shared-pool validation without DSpark
-
-| Check | Result |
-| --- | --- |
-| GPU topology and software | 4× RTX PRO 6000 Blackwell Max-Q, SM120, one x86-64 Linux host; NVIDIA driver 615.71.09, CUDA 13.2.1, NCCL 2.30.4, PyTorch 2.12.0+cu132, Triton 3.7.0, Zig 0.17.0 |
-| Shared capacity | 728,888 tokens exposed by the API, 9.60 GiB KV allocation per GPU |
-| GPU memory after startup | 85,194 MiB used and 12,148 MiB free per GPU |
-| CUDA Graphs | 80 captured per rank; zero eager decode steps in the four-request test |
-| Concurrent HTTP requests | Four active at the same time; all four returned their own expected code |
-| GPU prefix reuse | 2,583 tokens restored across slots |
-| Long prompt and queueing | 195,032 real input tokens, 116.30 s prefill. The request reserved all 728,888 tokens, returned the expected code, and the waiting request completed after the reservation was released. |
-| Build checks | 115/115 tests passed; AOT coverage 254/254 for the shared shape |
-
-The 728,888-token figure is the configured capacity and was exercised as a reservation. The longest actual prompt in this run was **195,032 tokens**. The run does not establish full-window generation speed or accuracy. See [the sanitized measurement record](results/shared-pool.json).
+In separate correctness tests, the same build passed short and 15K SQL checks, including a mixed workload. Four overlapping 10K retrieval requests returned their expected answers, and a warm request reused a 16,384-token prefix.
