@@ -2825,3 +2825,16 @@ diff --git a/zig/kernels/cuda/glm53_decode.cu b/zig/kernels/cuda/glm53_decode.cu
          const long long gpos = 0x7FFFFFFFLL - (long long)((unsigned long long)k & 0xFFFFFFFFull);
          if (gpos % dcp == rank) {
              const unsigned at = atomicAdd(&s_own, 1u);
+diff --git a/zig/src/server/responses.zig b/zig/src/server/responses.zig
+--- a/zig/src/server/responses.zig
++++ b/zig/src/server/responses.zig
+@@ -170,6 +170,9 @@
+             .ok => |v| v,
+             .err => return refuse(conn, a, "the request body is not JSON", 400, null),
+         };
++        if (body == .object and std.c.getenv("TENSORFOLD_NO_RESPONSE_STORE") != null) {
++            body.object.put(a, "store", .{ .bool = false }) catch return;
++        }
+         const r = translate_mod.translate(&cx, body, History{ .srv = srv }) catch return refuse(conn, a, cx.message, 400, null);
+         break :blk .{ r, body };
+     };
