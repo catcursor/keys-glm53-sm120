@@ -97,3 +97,11 @@ Each request asked for a long English essay on a different topic. Prompts were 1
 | 4 | 8,192 | 50.56 | 162.0 | 41.0–60.2 |
 
 In separate correctness tests, the same build passed short and 15K SQL checks, including a mixed workload. Four overlapping 10K retrieval requests returned their expected answers, and a warm request reused a 16,384-token prefix.
+
+## DSpark prefix-reuse regression
+
+Long prompts can save intermediate prefix checkpoints for a shared system prompt or a conversation branch. The prefill fast path used to capture draft activations only near the end of the full prompt. Saving an earlier checkpoint could therefore copy unwritten or stale rows from the DSpark KV ring. The fix makes activation capture and ring writes use the same cutoff for each chunk, covering the next saved checkpoint and the final prompt while still skipping rows neither needs.
+
+The regression test on the four-GPU Max-Q host sent 211,007 input tokens containing synthetic malformed text, cancelled after generation began, and retried the exact prompt. The retry restored all 211,007 tokens from cache, recovered the expected verification code, and generated 128 tokens. A new chat sharing 8,233 system-prefix tokens and an independent new chat also returned their expected codes without a repeated punctuation loop. The service used the 685,000-token shared FP8 KV pool with four streams configured. Each rank captured 663 CUDA Graphs, and the requests logged zero eager steps.
+
+The earlier rank 2 Xid 31 (illegal GPU memory write) did not recur in this test. Its cause remains unconfirmed.
