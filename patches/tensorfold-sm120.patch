@@ -2790,3 +2790,38 @@ index 0c8fd3810c64ad972914e5fd43c6f66d2d81db28..e05a9b78ef2bced4fe0e390b51856db8
          _ = try mu.admit(.{ .sid = sid, .slot = c.slot, .mode = mode, .sampling = samps[i], .count = n_tok, .prompt = prompts[pi].ids, .eos = eos, .begin = c.begin, .src = c.src, .stops = c.stops, .keeps = c.keeps });
          sids[i] = sid;
      }
+diff --git a/zig/kernels/cuda/glm53_decode.cu b/zig/kernels/cuda/glm53_decode.cu
+--- a/zig/kernels/cuda/glm53_decode.cu
++++ b/zig/kernels/cuda/glm53_decode.cu
+@@ -266,15 +266,18 @@
+     for (int k = threadIdx.x; k < rd; k += blockDim.x) o[lw + k] = qrot[i * rd + k];
+ }
+ 
++namespace {
++constexpr long long DCP_PAD = -9223372036854775807LL;
++}  // namespace
++
+ // Grid (rows), 256 threads: this rank's candidates mine[r, :K] (fused.select's `mine`: int64 min + 1, then the top kk).
+ // mode 0: src = int32 columns [rows, sld] (ascending, glm53_topk_write) -> keys sc[r * ld + col]; mode 1: src = int64
+ // keys [rows, sld] (topk.top_keys) as they are. Entries kk..K-1 keep the padding value.
+ extern "C" __global__ void glm53_dcp_cands(const long long* __restrict__ sc, long long ld, const void* __restrict__ src,
+                                            long long sld, int kk, int K, int mode, long long* __restrict__ out) {
+     const size_t r = blockIdx.x;
+-    const long long pad = -9223372036854775807LL;
+     for (int j = threadIdx.x; j < K; j += blockDim.x) {
+-        long long v = pad;
++        long long v = DCP_PAD;
+         if (j < kk) {
+             if (mode == 0) {
+                 const int c = reinterpret_cast<const int*>(src)[r * sld + j];
+@@ -375,7 +378,9 @@
+             take = eb < need;
+             ++eb;
+         }
+-        if (!take) continue;
++        // A short row in a batched decode can have fewer than K real keys.
++        // The padding word is not a position and would decode to a far-out KV row.
++        if (!take || k == DCP_PAD) continue;
+         const long long gpos = 0x7FFFFFFFLL - (long long)((unsigned long long)k & 0xFFFFFFFFull);
+         if (gpos % dcp == rank) {
+             const unsigned at = atomicAdd(&s_own, 1u);
