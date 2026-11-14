@@ -4,6 +4,7 @@ set -euo pipefail
 root=${TF_SM120_ASSETS:-/port}
 work=${TF_SM120_BUILD_ROOT:-$root}
 tree=$work/TensorFold
+runner_root=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 out=$root/aot-sm120
 ref=$root/ref
 tool=$root/build/bin/tf-glm53-generate
@@ -36,6 +37,7 @@ PY
             --out "$out/sweep" --merged "$out/packets"
         python3 -B "$tree/tools/glm53/sweep_aot.py" --merge-only --set "$previous/pack" \
             --set "$out/packets" --merged "$out/pack"
+        python3 -B "$runner_root/aot_index_writers.py" "$out/pack/aot.json" --repair
         exit 0
         ;;
     dcp4-256k)
@@ -101,10 +103,15 @@ mkdir -p "$out"
 test -s "$ref/manifest.json"
 for rank in 0 1 2 3; do test -s "$ref/tiles-r$rank.json"; done
 tiles="$ref/tiles-r0.json,$ref/tiles-r1.json,$ref/tiles-r2.json,$ref/tiles-r3.json"
+if [[ "$dcp" != 1 ]]; then
+    python3 -B "$tree/tools/glm53/patch_fused_dcp_rows.py" \
+        "$root/python-reference/src/tensorfold/families/glm_moe_dsa/cuda/fused.py"
+fi
 shape=(--mode list-variants --model /model --world 4 --context "$context"
     --parallel "$parallel" --dcp "$dcp" --prompt-rows "$prompt_rows" --window 128 --k 0
     "${draft_args[@]}" --tiles "$tiles")
 if [[ -n "$base_pack" ]]; then
+    python3 -B "$runner_root/aot_index_writers.py" "$base_pack/aot.json"
     status=0
     "$tool" "${shape[@]}" --aot "$base_pack" --out "$out/needs.json" || status=$?
     [[ "$status" == 0 || "$status" == 3 ]]
@@ -122,6 +129,9 @@ python3 -B "$tree/tools/glm53/sweep_aot.py" --tools "$tree" \
 if [[ -n "$base_pack" ]]; then
     python3 -B "$tree/tools/glm53/sweep_aot.py" --merge-only --set "$base_pack" --set "$merged" \
         --merged "$out/pack"
+fi
+python3 -B "$runner_root/aot_index_writers.py" "$out/pack/aot.json" --repair
+if [[ -n "$base_pack" ]]; then
     "$tool" --mode list-variants --model /model --world 4 --context "$context" \
         --parallel 1 --dcp 4 --prompt-rows 1024 --window 128 --k 0 \
         "${draft_args[@]}" --tiles "$tiles" --aot "$out/pack" --out "$out/check-decode.json"

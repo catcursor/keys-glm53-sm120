@@ -56,8 +56,6 @@ docker run --rm --gpus '"device=0"' --ipc=host \
   -e TF_SM120_PREFIX=/port/build-dcp4-fp8-shared \
   --entrypoint /bin/bash "$TF_SM120_IMAGE" -ec '
     bash /port/build-sm120.sh /port
-    python3 -B /port/TensorFold/tools/glm53/patch_fused_dcp_rows.py \
-      /port/python-reference/src/tensorfold/families/glm_moe_dsa/cuda/fused.py
     bash /port/compile-aot.sh dcp4-fp8-shared-dspark
   '
 
@@ -104,4 +102,8 @@ Long prompts can save intermediate prefix checkpoints for a shared system prompt
 
 The regression test on the four-GPU Max-Q host sent 211,007 input tokens containing synthetic malformed text, cancelled after generation began, and retried the exact prompt. The retry restored all 211,007 tokens from cache, recovered the expected verification code, and generated 128 tokens. A new chat sharing 8,233 system-prefix tokens and an independent new chat also returned their expected codes without a repeated punctuation loop. The service used the 685,000-token shared FP8 KV pool with four streams configured. Each rank captured 663 CUDA Graphs, and the requests logged zero eager steps.
 
-The earlier rank 2 Xid 31 (illegal GPU memory write) did not recur in this test. Its cause remains unconfirmed.
+## DCP4 long-context index writes
+
+The merged AOT pack on the four-GPU host contained two `_ik_write` variants per rank with the same DCP4 row-mode launch signature. The old variant wrote to `BASE + POS` on every rank. The patched variant checks the owning rank and writes to `BASE + POS / 4`. TensorFold could select the old cubin by hash order, causing out-of-bounds writes and corrupt output around 171K tokens in the 685K shared pool.
+
+The DCP4 build patches the Triton writers before compiling and validates the merged catalog. The launcher also checks existing packs before starting. To repair an affected pack in place, run `python3 -B aot_index_writers.py PATH/TO/pack/aot.json --repair`. The repair removes the four known stale entries only when compatible replacements exist. If it reports a missing replacement or another conflict, rebuild the pack.

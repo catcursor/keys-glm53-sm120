@@ -11,6 +11,8 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
+from aot_index_writers import checked_catalog
+
 
 ROOT = Path(__file__).resolve().parent
 MODEL = Path(os.environ.get("TF_SM120_MODEL", ROOT / "models/keys-glm53")).expanduser().resolve()
@@ -121,6 +123,7 @@ def preflight(preset=PRESETS["dcp1"]):
     for path in artifacts:
         if not (ROOT / path).is_file():
             raise RuntimeError(f"Missing port artifact: {path}")
+    checked_catalog(ROOT / preset.aot / "aot.json")
     occupied = run("ss", "-Hln", f"( sport = :{PORT} or sport = :{MASTER_PORT} )", capture=True)
     if occupied.strip():
         raise RuntimeError(f"Port already in use: {occupied.strip()}")
