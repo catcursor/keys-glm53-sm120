@@ -197,7 +197,7 @@ index c136eb52553849249d49c925b3cb79d64572dfa1..b5143d200df1ed16e9eb268529184114
      const src = @embedFile("cuda_triton.zig");
      var seen: usize = 0;
 diff --git a/zig/src/families/glm_moe_dsa/cuda_engine.zig b/zig/src/families/glm_moe_dsa/cuda_engine.zig
-index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..8abe89f52cbb171c28862b4a43fddce173458465 100644
+index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e0e2b6c8e950e2be9e48ef60f136a68b8af7edf8 100644
 --- a/zig/src/families/glm_moe_dsa/cuda_engine.zig
 +++ b/zig/src/families/glm_moe_dsa/cuda_engine.zig
 @@ -18,6 +18,7 @@ const kern = @import("cuda_kernels.zig");
@@ -263,15 +263,25 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..8abe89f52cbb171c28862b4a43fddce1
      for ([_][]const u8{ o.experts, o.pe_det, o.side, o.l2pf }) |t| {
          h.update(t);
          h.update("|");
-@@ -318,6 +339,7 @@ pub const Boot = struct {
+@@ -317,7 +338,9 @@ pub const Boot = struct {
+     side: ?dec.Side = null,
      l2pf: ?dec.L2pf = null,
      sp: ?prompt.Sp = null,
++    prefill_prof: ?prompt.Prof = null,
      fwd: fw.Forward, // the sequence-parallel chunk points at it (Sp.main); the Runner holds a copy
 +    prefill_fwd: fw.Forward = undefined,
      r: rn.Runner,
      // Phase 4: the drafters' configs (read and checked before anything loads), their tap plan, the drafters, the
      // default draft mode
-@@ -377,8 +399,9 @@ pub const Boot = struct {
+@@ -351,6 +374,7 @@ pub const Boot = struct {
+         b.side = null;
+         b.l2pf = null;
+         b.sp = null;
++        b.prefill_prof = null;
+         b.dspark_cfg = null;
+         b.dflash_cfg = null;
+         b.dspark_set = .{ .depth = 0 };
+@@ -377,8 +401,9 @@ pub const Boot = struct {
          if (!shared and !std.mem.eql(u8, o.experts, "tf")) return error.UnsupportedExperts;
          b.driver = try cuda.Driver.open();
          b.stage = 1;
@@ -282,7 +292,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..8abe89f52cbb171c28862b4a43fddce1
          const master = try cuda.rendezvous.parseMaster(o.master);
          b.lib = try cuda.nccl.Library.openPath(o.nccl_lib);
          b.stage = 3;
-@@ -420,7 +443,7 @@ pub const Boot = struct {
+@@ -420,7 +445,7 @@ pub const Boot = struct {
          }
          b.plan = try dhost.TapPlan.make(want);
          try checkParallelDrafters(o.parallel, if (b.dflash_cfg) |c| c.block else null, if (b.dspark_cfg) |c| c.block else null);
@@ -291,9 +301,14 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..8abe89f52cbb171c28862b4a43fddce1
          dh.update(std.mem.asBytes(&mode_word));
          // a quantized head's bytes and the kv_b setting join the record only when on: off, the digest is unchanged
          const head_id = try headq.identityOf(gpa, io, o.head_q, o.model, b.cfg.vocab, b.cfg.hidden);
-@@ -505,13 +528,43 @@ pub const Boot = struct {
+@@ -504,14 +529,48 @@ pub const Boot = struct {
+             b.l2pf = try dec.L2pf.init(gpa, &b.driver, &b.w, .{ .mode = pf_mode, .mb = o.l2pf_mb, .after = o.l2pf_after });
          }
          b.fwd = .{ .w = &b.w, .k = &b.k, .s = b.stream, .inv = b.inv.ptr, .comm = &b.comm, .fast = b.fast, .ring = true, .wide = &b.main_wide, .shared_experts = shared, .pe_det16 = det16, .side = if (b.side) |*x| x else null, .l2pf = if (b.l2pf) |*x| x else null, .multi_select = o.multi_select, .prof = null, .mtp_dense = if (b.mtp_dense) |*x| x else null, .dcp = b.dcp, .taps = try fw.Taps.of(&b.plan) };
++        if (o.rank == 0 and try envFlag("TF_GLM53_PREFILL_PROFILE", false)) {
++            b.prefill_prof = prompt.Prof.init(gpa, &b.driver, b.stream);
++            b.fwd.prof = &b.prefill_prof.?;
++        }
          if (o.prompt_sp and o.world > 1 and b.dcp == 1) b.sp = try prompt.Sp.init(&b.driver, &b.fwd, b.side_stream, &b.side_wide);
 +        if (o.prompt_sp and o.world > 1 and o.dcp_prefill_gather and b.dcp > 1) {
 +            b.prefill_fwd = b.fwd;
@@ -336,7 +351,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..8abe89f52cbb171c28862b4a43fddce1
          // Phase 4: the drafters on every rank (each its heads / MLP share), attached to the runner before its prewarm
          if (b.dflash_cfg != null) {
              b.dflash_dr = try draft.Drafter.load(gpa, io, &b.driver, &b.k, b.stream, &b.w, o.dflash, .dflash, b.dspark_set, o.dflash_set);
-@@ -528,7 +581,11 @@ pub const Boot = struct {
+@@ -528,7 +587,11 @@ pub const Boot = struct {
          if (o.parallel > 1) {
              b.multi = try multi.Multi.init(gpa, io, &b.r, o.parallel, o.multi_set, o.rank == 0);
              const per = b.multi.?.bytesPerStream();
@@ -349,7 +364,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..8abe89f52cbb171c28862b4a43fddce1
              if (b.multi.?.frows > 0) std.log.info("glm53 rank {d}: concurrent drafters: DFlash2 {s}, DSpark {s}; up to {d} drafts a stream, confidence floor {d} from {d} streams; requests draft with {t}", .{ o.rank, if (b.dflash_dr != null) "on" else "off", if (b.dspark_dr != null) "on" else "off", b.multi.?.frows - 1, o.multi_set.cutDFlash(), o.multi_set.cut_streams, b.mode });
          }
          b.stage = 19;
-@@ -551,7 +608,7 @@ pub const Boot = struct {
+@@ -551,7 +614,7 @@ pub const Boot = struct {
      fn checkCacheFits(b: *Boot, capacity: usize) !void {
          const mem = try b.ctx.memInfo();
          const reserve_gb: f64 = if (std.c.getenv("TF_GLM53_CACHE_RESERVE_GB")) |v| (std.fmt.parseFloat(f64, std.mem.span(v)) catch 6) else 6;
@@ -358,7 +373,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..8abe89f52cbb171c28862b4a43fddce1
          const local: u64 = dcpm.localCapacity(capacity, b.dcp);
          if (b.o.parallel > 1 and b.dcp > 1) {
              // several streams under DCP: the whole of what the slots allocate (index keys and the MTP layer too),
-@@ -562,10 +619,13 @@ pub const Boot = struct {
+@@ -562,10 +625,13 @@ pub const Boot = struct {
              // ran a node down to 4 GB with 24 GiB left here, so four streams are refused until that is measured smaller.
              const sgb_default: f64 = dcpm.streams_reserve_gb * @as(f64, @floatFromInt(b.o.parallel)) / 2;
              const sgb: f64 = if (std.c.getenv("TF_GLM53_DCP_STREAMS_RESERVE_GB")) |v| (std.fmt.parseFloat(f64, std.mem.span(v)) catch sgb_default) else sgb_default;
@@ -375,7 +390,15 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..8abe89f52cbb171c28862b4a43fddce1
              if (!sf.ok) {
                  std.log.err("context {d} x {d} streams needs {d:.1} GiB of caches on this rank and {d:.1} GiB is free; {d:.1} GiB must stay free (TF_GLM53_DCP_STREAMS_RESERVE_GB): use --context <= {d} with --parallel {d}, TF_GLM53_MTP_DENSE=0, or fewer streams", .{ capacity, b.o.parallel, @as(f64, @floatFromInt(sf.need)) / gib_f, @as(f64, @floatFromInt(sf.free)) / gib_f, sgb, sf.fit_tokens(capacity), b.o.parallel });
                  return error.CacheDoesNotFit;
-@@ -621,6 +681,7 @@ pub const Boot = struct {
+@@ -585,6 +651,7 @@ pub const Boot = struct {
+         if (b.dflash_dr) |x| x.deinit();
+         if (s >= 18) b.r.deinit();
+         if (s >= 17) if (b.sp) |*x| x.deinit();
++        if (b.prefill_prof) |*x| x.deinit();
+         if (s >= 16) {
+             if (b.l2pf) |*x| x.deinit();
+             if (b.side) |*x| x.deinit();
+@@ -621,6 +688,7 @@ pub const Boot = struct {
  /// verify window of N x (k + 1) rows must be a decode window. Phase 4c: DSpark and DFlash2 draft concurrent streams
  /// too (cuda_mdraft.zig; the drafters' own check, N blocks in one pass, follows once their configs are read).
  pub fn checkParallel(o: Options, dcp: usize) !void {
@@ -383,7 +406,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..8abe89f52cbb171c28862b4a43fddce1
      if (o.parallel <= 1) return;
      const quiet = @import("builtin").is_test;
      if (dcp > 1) {
-@@ -629,7 +690,8 @@ pub fn checkParallel(o: Options, dcp: usize) !void {
+@@ -629,7 +697,8 @@ pub fn checkParallel(o: Options, dcp: usize) !void {
              return error.ParallelNeedsDcpOff;
          }
          // nothing larger than the one-stream shape has ever been held: N streams share its tokens
@@ -393,7 +416,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..8abe89f52cbb171c28862b4a43fddce1
              if (!quiet) std.log.err("{d} streams x {d} tokens = {d} tokens of cache: at most {d} in all with the cache split over the ranks (--context <= {d} at --parallel {d})", .{ o.parallel, o.context, o.parallel * o.context, dcpm.streams_tokens, dcpm.streams_tokens / o.parallel, o.parallel });
              return error.DcpStreamsTooManyTokens;
          }
-@@ -870,9 +932,33 @@ pub const Session = struct {
+@@ -870,9 +939,33 @@ pub const Session = struct {
      const file_version: u32 = 1;
      pub const Head = extern struct { magic: u32, version: u32, rank: u32, world: u32, dcp: u32, n: u32, key: u64, identity: u64, views: u32, carry: u32, bytes: u64 };
  
@@ -427,7 +450,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..8abe89f52cbb171c28862b4a43fddce1
          const pr = s.reuse orelse return error.ReuseOff;
          const b = s.boot;
          const D = b.cfg.hidden;
-@@ -892,41 +978,27 @@ pub const Session = struct {
+@@ -892,41 +985,27 @@ pub const Session = struct {
          var total: u64 = 0;
          for (vs) |v| total += v.row * v.rows;
          const head: Head = .{ .magic = file_magic, .version = file_version, .rank = @intCast(b.o.rank), .world = @intCast(b.o.world), .dcp = @intCast(b.dcp), .n = @intCast(e.n()), .key = key, .identity = identity, .views = @intCast(vs.len), .carry = @intCast(D * 2), .bytes = total };
@@ -488,7 +511,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..8abe89f52cbb171c28862b4a43fddce1
          return @sizeOf(Head) + vs.len * 16 + total + D * 2;
      }
  
-@@ -934,14 +1006,18 @@ pub const Session = struct {
+@@ -934,14 +1013,18 @@ pub const Session = struct {
      /// the caller remembers it once every rank has read its own). A file of another rank, world, DCP, size, key or
      /// identity is refused.
      pub fn readState(s: *Session, ids: []const u32, file: [:0]const u8, key: u64, identity: u64) !*reuse.Kept {
@@ -511,7 +534,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..8abe89f52cbb171c28862b4a43fddce1
          const vs = try pr.views(ids.len);
          defer s.gpa.free(vs);
          var total: u64 = 0;
-@@ -949,14 +1025,14 @@ pub const Session = struct {
+@@ -949,14 +1032,14 @@ pub const Session = struct {
          if (head.magic != file_magic or head.version != file_version or head.rank != b.o.rank or head.world != b.o.world or head.dcp != b.dcp or head.n != ids.len or head.key != key or head.identity != identity or head.views != vs.len or head.carry != D * 2 or head.bytes != total) return error.StateRefused;
          const sizes = try s.gpa.alloc([2]u64, vs.len);
          defer s.gpa.free(sizes);
@@ -529,7 +552,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..8abe89f52cbb171c28862b4a43fddce1
              at: u64,
              stage: []u8,
              pub fn fill(f: *const @This(), views: []const reuse.View, offs: []const usize, base: u64) !void {
-@@ -966,7 +1042,7 @@ pub const Session = struct {
+@@ -966,7 +1049,7 @@ pub const Session = struct {
                      var done: usize = 0;
                      while (done < n) {
                          const part = @min(n - done, f.stage.len);
@@ -538,7 +561,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..8abe89f52cbb171c28862b4a43fddce1
                          try f.d.check(f.d.api.cuMemcpyHtoD_v2(base + off + done, f.stage.ptr, part), "cuMemcpyHtoD");
                          done += part;
                          pos += part;
-@@ -974,10 +1050,10 @@ pub const Session = struct {
+@@ -974,10 +1057,10 @@ pub const Session = struct {
                  }
              }
          };
@@ -551,7 +574,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..8abe89f52cbb171c28862b4a43fddce1
          try b.r.f.s.synchronize(); // pooled buffers may still be read by queued copies
          return pr.adopt(ids, carry, &filler);
      }
-@@ -1082,6 +1158,7 @@ test "--parallel refusals: DCP, a window wider than a decode window; the drafter
+@@ -1082,6 +1165,7 @@ test "--parallel refusals: DCP, a window wider than a decode window; the drafter
      // TF_GLM53_DCP_STREAMS: several streams with the cache split, up to the one-stream shape's tokens in all
      try checkParallel(.{ .parallel = 4, .context = 250_000, .dcp_streams = true, .dspark = "/x" }, 4);
      try checkParallel(.{ .parallel = 2, .context = 500_000, .dcp_streams = true, .dspark = "/x" }, 4);
@@ -1575,7 +1598,7 @@ index 0000000000000000000000000000000000000000..f462b437dec81669a128775018013fed
 +    }
 +};
 diff --git a/zig/src/families/glm_moe_dsa/cuda_prompt.zig b/zig/src/families/glm_moe_dsa/cuda_prompt.zig
-index 8b72cb3a89222d0a5bcf6ba5c84e0c9464514b15..4e14625cb506b5fe1f3f3575c0798c62b9a0e237 100644
+index 8b72cb3a89222d0a5bcf6ba5c84e0c9464514b15..0577084a9964ed03e50d6b2cf39a2bad7e581d86 100644
 --- a/zig/src/families/glm_moe_dsa/cuda_prompt.zig
 +++ b/zig/src/families/glm_moe_dsa/cuda_prompt.zig
 @@ -24,6 +24,7 @@ const kern = @import("cuda_kernels.zig");
@@ -1586,6 +1609,17 @@ index 8b72cb3a89222d0a5bcf6ba5c84e0c9464514b15..4e14625cb506b5fe1f3f3575c0798c62
  
  fn tyName(y: exl3.DType) []const u8 {
      return switch (y) {
+@@ -174,8 +175,8 @@ pub const Wide = struct {
+ /// shared expert (+ part += sy), the dense MLP (layers 0-2), the MTP layer's rows (all of it), the head. Comm stream
+ /// (the sequence-parallel chains): the bf16 reduce-scatter + residual add, the own-row fronts (norms, q_a / kv_a,
+ /// the indexer's wk / weights_proj / wq_b + rope, the router), the indexer's top-k, the all-gathers, the latent /
+-/// index key writes.
+-pub const Phase = enum { attn_proj, attn_core, routed, shared, dense, mtp, head, rs, front, select, ag, kv_write };
++/// index key writes, the DCP history staging (latent / index caches gathered before a layer).
++pub const Phase = enum { attn_proj, attn_core, routed, shared, dense, mtp, head, rs, front, select, ag, kv_write, hist };
+ const n_phases = @typeInfo(Phase).@"enum".field_names.len;
+ 
+ /// --prompt-prof (default off): CUDA timing events around the prompt path's phases on the main and comm streams,
 @@ -239,7 +240,7 @@ pub const Prof = struct {
          w.print("{s} {d:.1} ms:", .{ label, busy }) catch return buf[0..0];
          for (ms, 0..) |v, i| {
@@ -1797,7 +1831,7 @@ index 8b72cb3a89222d0a5bcf6ba5c84e0c9464514b15..4e14625cb506b5fe1f3f3575c0798c62
                  try sp.tap(h, li);
                  if (li + 1 < w.layers.len) {
                      try sp.frontAttn(h, st, li + 1, T);
-@@ -463,6 +527,23 @@ pub const Sp = struct {
+@@ -463,6 +527,25 @@ pub const Sp = struct {
          try sp.comm.allGatherInPlace(bufs, counts[0..bufs.len], dts, eb, sp.side.s.handle);
      }
  
@@ -1813,15 +1847,17 @@ index 8b72cb3a89222d0a5bcf6ba5c84e0c9464514b15..4e14625cb506b5fe1f3f3575c0798c62
 +        var sharded = f.*;
 +        sharded.dcp = st.dcp;
 +        sharded.fp8_kv = true;
++        const p0 = try f.pbegin();
 +        try sharded.gatherLatentCache(b, st.kc[li], start_pos);
 +        if (T != null and f.w.layers[li].indexer != null)
 +            try sharded.gatherPrefillCache(b.prefill_gather, b.prefill_index, st.ic[li], f.w.config.index_dim * 2, start_pos);
++        try f.pend(p0, .hist);
 +    }
 +
      /// fused._front_attn: own rows' input norm, q_a / kv_a and the indexer's projections; gathered; every row's
      /// latent and index key into the caches; the selection of own rows (SP_SELECT), gathered.
      fn frontAttn(sp: *Sp, h: *const Half, st: *const fw.State, li: usize, T: ?usize) !void {
-@@ -479,8 +560,8 @@ pub const Sp = struct {
+@@ -479,8 +562,8 @@ pub const Sp = struct {
          const nx = b.normed + o * D * 2;
          const p0 = try f.pbegin();
          try t_.rmsnorm(b.xo, D, L.input_norm, nx, D, n, D, c.eps);
@@ -1832,7 +1868,7 @@ index 8b72cb3a89222d0a5bcf6ba5c84e0c9464514b15..4e14625cb506b5fe1f3f3575c0798c62
          try t_.rmsnorm(b.qa + o * ql * 2, ql, L.q_a_norm, b.qn + o * ql * 2, ql, n, ql, c.eps);
          var bufs: [3]u64 = .{ b.qn, b.kva, b.ik };
          var re: [3]usize = .{ ql, b.kva_n, c.index_dim };
-@@ -493,7 +574,7 @@ pub const Sp = struct {
+@@ -493,7 +576,7 @@ pub const Sp = struct {
              if (T != null) {
                  try t_.router(nx, D, ix.weights_proj, b.iw + o * c.index_heads * 4, b.rpart, n, D, c.index_heads);
                  const iq = b.iq + o * c.index_heads * c.index_dim * 2;
@@ -1841,7 +1877,7 @@ index 8b72cb3a89222d0a5bcf6ba5c84e0c9464514b15..4e14625cb506b5fe1f3f3575c0798c62
                  try t_.iqRope(iq, f.inv, h.spos, n, c.index_heads, c.index_dim, c.rope);
              }
          }
-@@ -503,13 +584,39 @@ pub const Sp = struct {
+@@ -503,13 +586,39 @@ pub const Sp = struct {
          try f.pend(p1, .ag);
          const p2 = try f.pbegin();
          const m: tri.Mla = .{ .heads = w.heads, .nope = c.nope, .rope = c.rope, .lw = c.kv_lora, .vd = c.v_dim, .topk = c.index_topk };
@@ -1924,7 +1960,7 @@ index 8d71b47eeb20f1cda2f1bd45f1650d84ea8f1485..2b15ea597a5e676a21600d040538b5e3
      }
  
 diff --git a/zig/src/families/glm_moe_dsa/cuda_runner.zig b/zig/src/families/glm_moe_dsa/cuda_runner.zig
-index 317e726376dd9da83566679b3c8105e0b42f5d2d..b87b2f370e4544552c3c90371a622bf57a5c2743 100644
+index 317e726376dd9da83566679b3c8105e0b42f5d2d..de1bae2bcbba1538c7f392af1e3b78cbef4cf890 100644
 --- a/zig/src/families/glm_moe_dsa/cuda_runner.zig
 +++ b/zig/src/families/glm_moe_dsa/cuda_runner.zig
 @@ -37,6 +37,10 @@ const draft = @import("cuda_draft.zig");
@@ -2129,7 +2165,7 @@ index 317e726376dd9da83566679b3c8105e0b42f5d2d..b87b2f370e4544552c3c90371a622bf5
          return r.pickFirst(hb, L0, s);
      }
  
-@@ -843,11 +914,16 @@ pub const Runner = struct {
+@@ -843,29 +914,49 @@ pub const Runner = struct {
          return word[0] != 0;
      }
  
@@ -2147,8 +2183,12 @@ index 317e726376dd9da83566679b3c8105e0b42f5d2d..b87b2f370e4544552c3c90371a622bf5
          const L0 = prompt_ids.len;
          const D = r.w.config.hidden;
          if (a >= e or e > L0) return error.Invalid;
-@@ -855,17 +931,28 @@ pub const Runner = struct {
+         const R = e - a;
          const t_chunk = r.now();
++        if (r.f.prof) |p| p.on = true;
++        defer if (r.f.prof) |p| {
++            p.on = false;
++        };
          const T: ?usize = if (e > r.topk) e else null;
          const last = e == L0;
 +        // Exchange just the historical KV selected by this narrow window.
@@ -2181,7 +2221,7 @@ index 317e726376dd9da83566679b3c8105e0b42f5d2d..b87b2f370e4544552c3c90371a622bf5
              if (last) {
                  const hR = R / 2;
                  const p0 = try r.f.pbegin();
-@@ -874,9 +961,18 @@ pub const Runner = struct {
+@@ -874,9 +965,18 @@ pub const Runner = struct {
                  hb = b1;
              }
          } else {
@@ -2202,7 +2242,7 @@ index 317e726376dd9da83566679b3c8105e0b42f5d2d..b87b2f370e4544552c3c90371a622bf5
          if (r.solo_feed) try r.feedPrompt(&r.pb, a, e, L0); // prefill_chunk: the drafters' contexts take this chunk's taps
          if (r.set.k > 0) try r.mtpPrompt(st, prompt_ids, a, e, T);
          if (!r.set.served) try r.f.s.synchronize(); // the pinned ids are reused by the next chunk
-@@ -890,6 +986,27 @@ pub const Runner = struct {
+@@ -890,6 +990,27 @@ pub const Runner = struct {
          return hb;
      }
  

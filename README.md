@@ -23,6 +23,7 @@ The public repository contains source, a patch, and synthetic test results. Mode
 - DCP4 shards the KV cache across the four GPUs. Each MLA row has 512 E4M3 values, four FP32 scales, and 64 BF16 RoPE values. Index keys remain BF16.
 - A request reserves its tokenized input plus its requested maximum output. The reservation is released when the request finishes. Up to four requests run when their reservations fit; a request waits if the remaining token budget or contiguous range is too small. A single request can reserve the whole pool.
 - Decode uses CUDA Graphs. GPU prefix checkpoints can be reused across stream slots. Reusing a region evicts overlapping idle checkpoints.
+- The Owner Exchange preset saves intermediate prefix checkpoints every 8,192 tokens, matching its 8,192-row prefill chunks. Set `TF_GLM53_PREFILL_PROFILE=1` when starting the launcher to log rank 0's prefill phase timings, including staging the DCP history.
 - The DSpark preset verifies drafts from up to four requests in one target-model batch. With four streams, the verification window can hold up to 32 rows and each stream can propose up to seven draft tokens per round.
 
 ## Reproduce on Linux

@@ -180,7 +180,7 @@ def start(devices, preset=PRESETS["dcp1"]):
         "TF_GLM53_GRAPHS": "1",
         "TF_GLM53_PREWARM": "1",
         "TF_GLM53_PROMPT_REUSE": "1",
-        "TF_GLM53_REUSE_STRIDE": "4096",
+        "TF_GLM53_REUSE_STRIDE": "8192" if preset.owner_prefill else "4096",
         "TF_GLM53_AOT": f"/port/{preset.aot}",
         "TF_GLM53_HEAD_Q": "/model/lm_head-6bit/lm_head-6bit.safetensors",
         "TF_GLM53_TIMEOUT": "1200",
@@ -199,6 +199,8 @@ def start(devices, preset=PRESETS["dcp1"]):
                    TF_GLM53_PRECAPTURE="1", NCCL_PROTO="LL,LL128,Simple", NCCL_P2P_LEVEL="SYS")
     if preset.dcp_streams_reserve_gib is not None:
         env["TF_GLM53_DCP_STREAMS_RESERVE_GB"] = str(preset.dcp_streams_reserve_gib)
+    if os.environ.get("TF_GLM53_PREFILL_PROFILE") == "1":
+        env["TF_GLM53_PREFILL_PROFILE"] = "1"
     if os.environ.get("TF_GLM53_ROUND_PROFILE") == "1":
         env["TF_GLM53_ROUND_PROFILE"] = "1"
     if preset.dspark:
