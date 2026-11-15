@@ -24,6 +24,7 @@ The public repository contains source, a patch, and synthetic test results. Mode
 - A request reserves its tokenized input plus its requested maximum output. The reservation is released when the request finishes. Up to four requests run when their reservations fit; a request waits if the remaining token budget or contiguous range is too small. A single request can reserve the whole pool.
 - Decode uses CUDA Graphs. GPU prefix checkpoints can be reused across stream slots. Reusing a region evicts overlapping idle checkpoints.
 - The Owner Exchange preset saves intermediate prefix checkpoints every 8,192 tokens, matching its 8,192-row prefill chunks. Set `TF_GLM53_PREFILL_PROFILE=1` when starting the launcher to log rank 0's prefill phase timings, including staging the DCP history.
+- The Owner Exchange preset enables `TF_GLM53_PREFILL_AG_IPC=1` to gather prefill rows through CUDA IPC peer copies. Startup compares all three gather kinds against NCCL byte for byte across several row counts and both buffer halves. A failed equality check disables peer gathers on all ranks.
 - The DSpark preset verifies drafts from up to four requests in one target-model batch. With four streams, the verification window can hold up to 32 rows and each stream can propose up to seven draft tokens per round.
 
 ## Reproduce on Linux
@@ -73,6 +74,8 @@ python3 -B check_fp8_four_streams.py \
 ```
 
 ## Latest DSpark performance
+
+On November 15, 2026, the server adopted the peer-gather change from TensorFold commit `b3c5c27`. Its deployment snapshot `dcb39b9` uses a 600,000-token shared pool, four streams, an 8,192-token checkpoint stride, and `TF_GLM53_GRAPHS=0` following a runtime OOM. These are the recorded server settings. This repository's inference-test launcher requires CUDA Graphs and uses the documented 685,000-token preset.
 
 Measured on November 13, 2026 with the shared FP8 KV and DSpark ft2 preset. All four Max-Q GPUs reported PCIe Gen5 ×16 links and a 300 W power limit. Resizable BAR and ForceP2P were enabled, BAR1 was 128 GiB per GPU, and the driver reported peer reads and writes available between every pair of GPUs. The prefill exchange passed the BF16 startup checks against NCCL 2.30.4. Each rank captured 663 CUDA Graphs.
 

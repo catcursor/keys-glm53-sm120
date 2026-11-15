@@ -196,7 +196,8 @@ def start(devices, preset=PRESETS["dcp1"]):
         env["TF_GLM53_PROMPT_SP"] = str(int(preset.owner_prefill))
     if preset.owner_prefill:
         env.update(TF_GLM53_PREFILL_OWNER_EXCHANGE="1", TF_GLM53_CLEAR_UNUSED_KV="1",
-                   TF_GLM53_PRECAPTURE="1", NCCL_PROTO="LL,LL128,Simple", NCCL_P2P_LEVEL="SYS")
+                   TF_GLM53_PREFILL_AG_IPC="1", TF_GLM53_PRECAPTURE="1",
+                   NCCL_PROTO="LL,LL128,Simple", NCCL_P2P_LEVEL="SYS")
     if preset.dcp_streams_reserve_gib is not None:
         env["TF_GLM53_DCP_STREAMS_RESERVE_GB"] = str(preset.dcp_streams_reserve_gib)
     if os.environ.get("TF_GLM53_PREFILL_PROFILE") == "1":

@@ -197,18 +197,19 @@ index c136eb52553849249d49c925b3cb79d64572dfa1..b5143d200df1ed16e9eb268529184114
      const src = @embedFile("cuda_triton.zig");
      var seen: usize = 0;
 diff --git a/zig/src/families/glm_moe_dsa/cuda_engine.zig b/zig/src/families/glm_moe_dsa/cuda_engine.zig
-index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e0e2b6c8e950e2be9e48ef60f136a68b8af7edf8 100644
+index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..62c5d5d766237b42fe77a74f08e6ed0687577edc 100644
 --- a/zig/src/families/glm_moe_dsa/cuda_engine.zig
 +++ b/zig/src/families/glm_moe_dsa/cuda_engine.zig
-@@ -18,6 +18,7 @@ const kern = @import("cuda_kernels.zig");
+@@ -18,6 +18,8 @@ const kern = @import("cuda_kernels.zig");
  const rn = @import("cuda_runner.zig");
  const smp = @import("sampling.zig");
  const prompt = @import("cuda_prompt.zig");
 +const Exchange = @import("cuda_prefill_exchange.zig").Exchange;
++const Gather = @import("cuda_prefill_exchange.zig").Gather;
  const dec = @import("cuda_decode.zig");
  const roce = @import("cuda_roce.zig");
  const tiles = @import("tiles.zig");
-@@ -92,6 +93,7 @@ pub fn parseHcas(text: []const u8, out: *[2][]const u8) [][]const u8 {
+@@ -92,6 +94,7 @@ pub fn parseHcas(text: []const u8, out: *[2][]const u8) [][]const u8 {
  /// reads (`fromEnv`); every rank must be started with the same ones (checked at the rendezvous).
  pub const Options = struct {
      rank: usize = 0,
@@ -216,7 +217,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e0e2b6c8e950e2be9e48ef60f136a68b
      world: usize = world_default,
      master: []const u8 = "127.0.0.1:29581",
      model: []const u8 = "",
-@@ -119,6 +121,12 @@ pub const Options = struct {
+@@ -119,6 +122,12 @@ pub const Options = struct {
      prompt_rows: usize = 8192,
      prompt_rows_short: usize = 4096,
      prompt_sp: bool = true,
@@ -229,7 +230,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e0e2b6c8e950e2be9e48ef60f136a68b
      experts: []const u8 = "shared",
      pe_det: []const u8 = "slots16",
      unpack_mb: usize = 384,
-@@ -164,6 +172,7 @@ pub const Options = struct {
+@@ -164,6 +173,7 @@ pub const Options = struct {
      pub fn fromEnv(model: []const u8, context: usize) !Options {
          var o: Options = .{ .model = model, .context = context };
          o.rank = try envInt(usize, "TF_GLM53_RANK", 0);
@@ -237,7 +238,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e0e2b6c8e950e2be9e48ef60f136a68b
          o.world = try envInt(usize, "TF_GLM53_WORLD", world_default);
          o.master = env("TF_GLM53_MASTER") orelse o.master;
          o.aot = env("TF_GLM53_AOT") orelse env("TENSORFOLD_CUDA_KERNELS") orelse "";
-@@ -189,6 +198,12 @@ pub const Options = struct {
+@@ -189,6 +199,12 @@ pub const Options = struct {
          o.prompt_rows = try envInt(usize, "TF_GLM53_PROMPT_ROWS", o.prompt_rows);
          o.prompt_rows_short = try envInt(usize, "TF_GLM53_PROMPT_ROWS_SHORT", o.prompt_rows_short);
          o.prompt_sp = try envFlag("TF_GLM53_PROMPT_SP", true);
@@ -250,7 +251,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e0e2b6c8e950e2be9e48ef60f136a68b
          o.experts = env("TF_GLM53_EXPERTS") orelse o.experts;
          o.pe_det = env("TF_GLM53_PE_DET") orelse env("TF_EXL3_PROMPT_DET") orelse o.pe_det;
          o.unpack_mb = try envInt(usize, "TF_GLM53_UNPACK_MB", o.unpack_mb);
-@@ -274,6 +289,12 @@ fn settingsDigest(o: Options, dcp: usize, drafts: u64) u64 {
+@@ -274,6 +290,12 @@ fn settingsDigest(o: Options, dcp: usize, drafts: u64) u64 {
      if (o.parallel > 1) o.multi_set.digest(&h);
      const shape = [_]usize{ o.world, o.context, o.k, o.draft_vocab, o.mtp_reuse, @intFromBool(o.graphs), @intFromBool(o.prewarm), @intFromBool(o.roce), o.prompt_rows, o.prompt_rows_short, @intFromBool(o.prompt_sp), o.unpack_mb, @intFromBool(o.multi_select), @intFromBool(o.device_cands), @intFromBool(o.mtp_dense), dcp, @intFromBool(o.roce_health), @intFromBool(o.reuse.on), o.reuse.gap, o.reuse.stride, o.reuse.entries, @intFromBool(o.reuse.loose), @intFromFloat(o.l2pf_mb * 1024) };
      h.update(std.mem.asBytes(&shape));
@@ -263,7 +264,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e0e2b6c8e950e2be9e48ef60f136a68b
      for ([_][]const u8{ o.experts, o.pe_det, o.side, o.l2pf }) |t| {
          h.update(t);
          h.update("|");
-@@ -317,7 +338,9 @@ pub const Boot = struct {
+@@ -317,7 +339,9 @@ pub const Boot = struct {
      side: ?dec.Side = null,
      l2pf: ?dec.L2pf = null,
      sp: ?prompt.Sp = null,
@@ -273,7 +274,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e0e2b6c8e950e2be9e48ef60f136a68b
      r: rn.Runner,
      // Phase 4: the drafters' configs (read and checked before anything loads), their tap plan, the drafters, the
      // default draft mode
-@@ -351,6 +374,7 @@ pub const Boot = struct {
+@@ -351,6 +375,7 @@ pub const Boot = struct {
          b.side = null;
          b.l2pf = null;
          b.sp = null;
@@ -281,7 +282,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e0e2b6c8e950e2be9e48ef60f136a68b
          b.dspark_cfg = null;
          b.dflash_cfg = null;
          b.dspark_set = .{ .depth = 0 };
-@@ -377,8 +401,9 @@ pub const Boot = struct {
+@@ -377,8 +402,9 @@ pub const Boot = struct {
          if (!shared and !std.mem.eql(u8, o.experts, "tf")) return error.UnsupportedExperts;
          b.driver = try cuda.Driver.open();
          b.stage = 1;
@@ -292,7 +293,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e0e2b6c8e950e2be9e48ef60f136a68b
          const master = try cuda.rendezvous.parseMaster(o.master);
          b.lib = try cuda.nccl.Library.openPath(o.nccl_lib);
          b.stage = 3;
-@@ -420,7 +445,7 @@ pub const Boot = struct {
+@@ -420,7 +446,7 @@ pub const Boot = struct {
          }
          b.plan = try dhost.TapPlan.make(want);
          try checkParallelDrafters(o.parallel, if (b.dflash_cfg) |c| c.block else null, if (b.dspark_cfg) |c| c.block else null);
@@ -301,7 +302,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e0e2b6c8e950e2be9e48ef60f136a68b
          dh.update(std.mem.asBytes(&mode_word));
          // a quantized head's bytes and the kv_b setting join the record only when on: off, the digest is unchanged
          const head_id = try headq.identityOf(gpa, io, o.head_q, o.model, b.cfg.vocab, b.cfg.hidden);
-@@ -504,14 +529,48 @@ pub const Boot = struct {
+@@ -504,14 +530,66 @@ pub const Boot = struct {
              b.l2pf = try dec.L2pf.init(gpa, &b.driver, &b.w, .{ .mode = pf_mode, .mb = o.l2pf_mb, .after = o.l2pf_after });
          }
          b.fwd = .{ .w = &b.w, .k = &b.k, .s = b.stream, .inv = b.inv.ptr, .comm = &b.comm, .fast = b.fast, .ring = true, .wide = &b.main_wide, .shared_experts = shared, .pe_det16 = det16, .side = if (b.side) |*x| x else null, .l2pf = if (b.l2pf) |*x| x else null, .multi_select = o.multi_select, .prof = null, .mtp_dense = if (b.mtp_dense) |*x| x else null, .dcp = b.dcp, .taps = try fw.Taps.of(&b.plan) };
@@ -334,6 +335,24 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e0e2b6c8e950e2be9e48ef60f136a68b
 +                        std.log.info("glm53 rank {d}: prefill owner exchange matches NCCL BF16 for startup probes", .{o.rank});
 +                    }
 +                }
++                if (try envFlag("TF_GLM53_PREFILL_AG_IPC", false)) {
++                    const c = b.cfg;
++                    const P = Gather.Part;
++                    const shapes: Gather.Shapes = .{
++                        &.{ P{ .elems = c.q_lora, .bytes = 2 }, P{ .elems = b.w.layers[0].kv_a.n, .bytes = 2 }, P{ .elems = c.index_dim, .bytes = 4 } },
++                        &.{P{ .elems = c.index_topk, .bytes = 4 }},
++                        &.{ P{ .elems = c.hidden, .bytes = 2 }, P{ .elems = c.top_k, .bytes = 4 }, P{ .elems = c.top_k, .bytes = 4 } },
++                    };
++                    sp.gather = try Gather.init(&b.driver, &b.rdv, o.rank, fw.max_prompt_rows / (2 * o.world), shapes);
++                    const exact = try sp.gather.?.verify(gpa, .{ .k = &b.k, .s = b.side_stream }, &b.comm, shapes);
++                    if (!try b.rdv.agree(exact)) {
++                        sp.gather.?.deinit();
++                        sp.gather = null;
++                        std.log.warn("glm53 rank {d}: prefill row gather disabled after verification", .{o.rank});
++                    } else {
++                        std.log.info("glm53 rank {d}: prefill row gathers by peer copy (byte-exact with NCCL at startup)", .{o.rank});
++                    }
++                }
 +            }
 +        }
          const capacity = o.context + o.k + 1; // Glm53Engine: Runner(limit + k + 1)
@@ -351,7 +370,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e0e2b6c8e950e2be9e48ef60f136a68b
          // Phase 4: the drafters on every rank (each its heads / MLP share), attached to the runner before its prewarm
          if (b.dflash_cfg != null) {
              b.dflash_dr = try draft.Drafter.load(gpa, io, &b.driver, &b.k, b.stream, &b.w, o.dflash, .dflash, b.dspark_set, o.dflash_set);
-@@ -528,7 +587,11 @@ pub const Boot = struct {
+@@ -528,7 +606,11 @@ pub const Boot = struct {
          if (o.parallel > 1) {
              b.multi = try multi.Multi.init(gpa, io, &b.r, o.parallel, o.multi_set, o.rank == 0);
              const per = b.multi.?.bytesPerStream();
@@ -364,7 +383,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e0e2b6c8e950e2be9e48ef60f136a68b
              if (b.multi.?.frows > 0) std.log.info("glm53 rank {d}: concurrent drafters: DFlash2 {s}, DSpark {s}; up to {d} drafts a stream, confidence floor {d} from {d} streams; requests draft with {t}", .{ o.rank, if (b.dflash_dr != null) "on" else "off", if (b.dspark_dr != null) "on" else "off", b.multi.?.frows - 1, o.multi_set.cutDFlash(), o.multi_set.cut_streams, b.mode });
          }
          b.stage = 19;
-@@ -551,7 +614,7 @@ pub const Boot = struct {
+@@ -551,7 +633,7 @@ pub const Boot = struct {
      fn checkCacheFits(b: *Boot, capacity: usize) !void {
          const mem = try b.ctx.memInfo();
          const reserve_gb: f64 = if (std.c.getenv("TF_GLM53_CACHE_RESERVE_GB")) |v| (std.fmt.parseFloat(f64, std.mem.span(v)) catch 6) else 6;
@@ -373,7 +392,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e0e2b6c8e950e2be9e48ef60f136a68b
          const local: u64 = dcpm.localCapacity(capacity, b.dcp);
          if (b.o.parallel > 1 and b.dcp > 1) {
              // several streams under DCP: the whole of what the slots allocate (index keys and the MTP layer too),
-@@ -562,10 +625,13 @@ pub const Boot = struct {
+@@ -562,10 +644,13 @@ pub const Boot = struct {
              // ran a node down to 4 GB with 24 GiB left here, so four streams are refused until that is measured smaller.
              const sgb_default: f64 = dcpm.streams_reserve_gb * @as(f64, @floatFromInt(b.o.parallel)) / 2;
              const sgb: f64 = if (std.c.getenv("TF_GLM53_DCP_STREAMS_RESERVE_GB")) |v| (std.fmt.parseFloat(f64, std.mem.span(v)) catch sgb_default) else sgb_default;
@@ -390,7 +409,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e0e2b6c8e950e2be9e48ef60f136a68b
              if (!sf.ok) {
                  std.log.err("context {d} x {d} streams needs {d:.1} GiB of caches on this rank and {d:.1} GiB is free; {d:.1} GiB must stay free (TF_GLM53_DCP_STREAMS_RESERVE_GB): use --context <= {d} with --parallel {d}, TF_GLM53_MTP_DENSE=0, or fewer streams", .{ capacity, b.o.parallel, @as(f64, @floatFromInt(sf.need)) / gib_f, @as(f64, @floatFromInt(sf.free)) / gib_f, sgb, sf.fit_tokens(capacity), b.o.parallel });
                  return error.CacheDoesNotFit;
-@@ -585,6 +651,7 @@ pub const Boot = struct {
+@@ -585,6 +670,7 @@ pub const Boot = struct {
          if (b.dflash_dr) |x| x.deinit();
          if (s >= 18) b.r.deinit();
          if (s >= 17) if (b.sp) |*x| x.deinit();
@@ -398,7 +417,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e0e2b6c8e950e2be9e48ef60f136a68b
          if (s >= 16) {
              if (b.l2pf) |*x| x.deinit();
              if (b.side) |*x| x.deinit();
-@@ -621,6 +688,7 @@ pub const Boot = struct {
+@@ -621,6 +707,7 @@ pub const Boot = struct {
  /// verify window of N x (k + 1) rows must be a decode window. Phase 4c: DSpark and DFlash2 draft concurrent streams
  /// too (cuda_mdraft.zig; the drafters' own check, N blocks in one pass, follows once their configs are read).
  pub fn checkParallel(o: Options, dcp: usize) !void {
@@ -406,7 +425,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e0e2b6c8e950e2be9e48ef60f136a68b
      if (o.parallel <= 1) return;
      const quiet = @import("builtin").is_test;
      if (dcp > 1) {
-@@ -629,7 +697,8 @@ pub fn checkParallel(o: Options, dcp: usize) !void {
+@@ -629,7 +716,8 @@ pub fn checkParallel(o: Options, dcp: usize) !void {
              return error.ParallelNeedsDcpOff;
          }
          // nothing larger than the one-stream shape has ever been held: N streams share its tokens
@@ -416,7 +435,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e0e2b6c8e950e2be9e48ef60f136a68b
              if (!quiet) std.log.err("{d} streams x {d} tokens = {d} tokens of cache: at most {d} in all with the cache split over the ranks (--context <= {d} at --parallel {d})", .{ o.parallel, o.context, o.parallel * o.context, dcpm.streams_tokens, dcpm.streams_tokens / o.parallel, o.parallel });
              return error.DcpStreamsTooManyTokens;
          }
-@@ -870,9 +939,33 @@ pub const Session = struct {
+@@ -870,9 +958,33 @@ pub const Session = struct {
      const file_version: u32 = 1;
      pub const Head = extern struct { magic: u32, version: u32, rank: u32, world: u32, dcp: u32, n: u32, key: u64, identity: u64, views: u32, carry: u32, bytes: u64 };
  
@@ -450,7 +469,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e0e2b6c8e950e2be9e48ef60f136a68b
          const pr = s.reuse orelse return error.ReuseOff;
          const b = s.boot;
          const D = b.cfg.hidden;
-@@ -892,41 +985,27 @@ pub const Session = struct {
+@@ -892,41 +1004,27 @@ pub const Session = struct {
          var total: u64 = 0;
          for (vs) |v| total += v.row * v.rows;
          const head: Head = .{ .magic = file_magic, .version = file_version, .rank = @intCast(b.o.rank), .world = @intCast(b.o.world), .dcp = @intCast(b.dcp), .n = @intCast(e.n()), .key = key, .identity = identity, .views = @intCast(vs.len), .carry = @intCast(D * 2), .bytes = total };
@@ -511,7 +530,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e0e2b6c8e950e2be9e48ef60f136a68b
          return @sizeOf(Head) + vs.len * 16 + total + D * 2;
      }
  
-@@ -934,14 +1013,18 @@ pub const Session = struct {
+@@ -934,14 +1032,18 @@ pub const Session = struct {
      /// the caller remembers it once every rank has read its own). A file of another rank, world, DCP, size, key or
      /// identity is refused.
      pub fn readState(s: *Session, ids: []const u32, file: [:0]const u8, key: u64, identity: u64) !*reuse.Kept {
@@ -534,7 +553,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e0e2b6c8e950e2be9e48ef60f136a68b
          const vs = try pr.views(ids.len);
          defer s.gpa.free(vs);
          var total: u64 = 0;
-@@ -949,14 +1032,14 @@ pub const Session = struct {
+@@ -949,14 +1051,14 @@ pub const Session = struct {
          if (head.magic != file_magic or head.version != file_version or head.rank != b.o.rank or head.world != b.o.world or head.dcp != b.dcp or head.n != ids.len or head.key != key or head.identity != identity or head.views != vs.len or head.carry != D * 2 or head.bytes != total) return error.StateRefused;
          const sizes = try s.gpa.alloc([2]u64, vs.len);
          defer s.gpa.free(sizes);
@@ -552,7 +571,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e0e2b6c8e950e2be9e48ef60f136a68b
              at: u64,
              stage: []u8,
              pub fn fill(f: *const @This(), views: []const reuse.View, offs: []const usize, base: u64) !void {
-@@ -966,7 +1049,7 @@ pub const Session = struct {
+@@ -966,7 +1068,7 @@ pub const Session = struct {
                      var done: usize = 0;
                      while (done < n) {
                          const part = @min(n - done, f.stage.len);
@@ -561,7 +580,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e0e2b6c8e950e2be9e48ef60f136a68b
                          try f.d.check(f.d.api.cuMemcpyHtoD_v2(base + off + done, f.stage.ptr, part), "cuMemcpyHtoD");
                          done += part;
                          pos += part;
-@@ -974,10 +1057,10 @@ pub const Session = struct {
+@@ -974,10 +1076,10 @@ pub const Session = struct {
                  }
              }
          };
@@ -574,7 +593,7 @@ index 783ba4d30b0c8dec38ccafb2a296b11ce4e8f43b..e0e2b6c8e950e2be9e48ef60f136a68b
          try b.r.f.s.synchronize(); // pooled buffers may still be read by queued copies
          return pr.adopt(ids, carry, &filler);
      }
-@@ -1082,6 +1165,7 @@ test "--parallel refusals: DCP, a window wider than a decode window; the drafter
+@@ -1082,6 +1184,7 @@ test "--parallel refusals: DCP, a window wider than a decode window; the drafter
      // TF_GLM53_DCP_STREAMS: several streams with the cache split, up to the one-stream shape's tokens in all
      try checkParallel(.{ .parallel = 4, .context = 250_000, .dcp_streams = true, .dspark = "/x" }, 4);
      try checkParallel(.{ .parallel = 2, .context = 500_000, .dcp_streams = true, .dspark = "/x" }, 4);
@@ -1478,10 +1497,10 @@ index 6e45e3ce40ef3b1d5a90357ef8b591bcf900c510..144943c94ab100ac4979e50bdbc724d5
 +}
 diff --git a/zig/src/families/glm_moe_dsa/cuda_prefill_exchange.zig b/zig/src/families/glm_moe_dsa/cuda_prefill_exchange.zig
 new file mode 100644
-index 0000000000000000000000000000000000000000..f462b437dec81669a128775018013fedb4f31c1c
+index 0000000000000000000000000000000000000000..20ebdc01594bac005bc9fdefe30cf9a44bd5f3f3
 --- /dev/null
 +++ b/zig/src/families/glm_moe_dsa/cuda_prefill_exchange.zig
-@@ -0,0 +1,115 @@
+@@ -0,0 +1,270 @@
 +const std = @import("std");
 +const cuda = @import("cuda");
 +const kern = @import("cuda_kernels.zig");
@@ -1597,19 +1616,175 @@ index 0000000000000000000000000000000000000000..f462b437dec81669a128775018013fed
 +        return exact;
 +    }
 +};
++
++/// Sp.agRows through peer copies: each rank copies its own rows into every peer's inbox slot of (kind, half), a
++/// marks all-gather orders those writes before the local copies out of the inbox. A slot is written again only
++/// after every rank has passed a later gather's barrier, so its owner's copies out of it are done by then.
++pub const Gather = struct {
++    pub const kinds = 3;
++    pub const Part = struct { elems: usize, bytes: usize };
++    pub const Shapes = [kinds][]const Part;
++
++    d: *const cuda.Driver,
++    inbox: cuda.DeviceBuffer,
++    marks: cuda.DeviceBuffer,
++    peers: [world]u64,
++    slot: [kinds]usize,
++    max_n: usize,
++    closeHandle: CloseHandle,
++    rank: usize,
++
++    fn need(parts: []const Part, n: usize) usize {
++        var bytes: usize = 0;
++        for (parts) |p| bytes += std.mem.alignForward(usize, world * n * p.elems * p.bytes, 256);
++        return bytes;
++    }
++
++    pub fn init(d: *cuda.Driver, rdv: *cuda.rendezvous.Rendezvous, rank: usize, max_n: usize, shapes: Shapes) !Gather {
++        const get = d.lib.lookup(GetHandle, "cuIpcGetMemHandle") orelse return error.MissingSymbol;
++        const open = d.lib.lookup(OpenHandle, "cuIpcOpenMemHandle_v2") orelse return error.MissingSymbol;
++        const close = d.lib.lookup(CloseHandle, "cuIpcCloseMemHandle") orelse return error.MissingSymbol;
++        var slot: [kinds]usize = undefined;
++        var total: usize = 0;
++        for (shapes, 0..) |parts, k| {
++            slot[k] = need(parts, max_n);
++            total += slot[k];
++        }
++        var inbox = try cuda.DeviceBuffer.alloc(d, 2 * total);
++        errdefer inbox.free();
++        var marks = try cuda.DeviceBuffer.alloc(d, (world + 1) * 4);
++        errdefer marks.free();
++        try marks.fill8(0, null);
++        var mine: Handle = undefined;
++        try d.check(get(&mine, inbox.ptr), "cuIpcGetMemHandle");
++        var handles: [world]Handle = undefined;
++        try rdv.allGather(std.mem.asBytes(&mine), std.mem.asBytes(&handles));
++        var peers: [world]u64 = @splat(0);
++        errdefer for (peers, 0..) |ptr, i| {
++            if (i != rank and ptr != 0) _ = close(ptr);
++        };
++        peers[rank] = inbox.ptr;
++        for (handles, 0..) |handle, i| {
++            if (i == rank) continue;
++            try d.check(open(&peers[i], handle, 1), "cuIpcOpenMemHandle");
++        }
++        return .{ .d = d, .inbox = inbox, .marks = marks, .peers = peers, .slot = slot, .max_n = max_n, .closeHandle = close, .rank = rank };
++    }
++
++    pub fn deinit(g: *Gather) void {
++        for (g.peers, 0..) |ptr, i| {
++            if (i != g.rank) _ = g.closeHandle(ptr);
++        }
++        g.marks.free();
++        g.inbox.free();
++    }
++
++    /// comm.allGatherInPlace of `bufs` (rank r's `counts[i]` elements of `eb[i]` bytes at element r * counts[i]).
++    pub fn gather(g: *const Gather, o: kern.Ops, comm: *const cuda.nccl.Communicator, kind: usize, half: usize, bufs: []const u64, counts: []const usize, eb: []const usize) !void {
++        var base: usize = 0;
++        for (g.slot) |s| base += s;
++        base *= half;
++        for (g.slot[0..kind]) |s| base += s;
++        var offs: [6]usize = undefined;
++        var off = base;
++        for (counts, eb, 0..) |n, e, i| {
++            offs[i] = off;
++            off += std.mem.alignForward(usize, world * n * e, 256);
++        }
++        if (off - base > g.slot[kind]) return error.WindowTooWide;
++        for (bufs, counts, eb, 0..) |b, n, e, i| {
++            const bytes = n * e;
++            for (1..world) |j| {
++                const peer = (g.rank + j) % world;
++                try o.copy(g.peers[peer] + offs[i] + g.rank * bytes, b + g.rank * bytes, bytes);
++            }
++        }
++        try comm.allGather(g.marks.ptr, g.marks.ptr + 4, 1, .i32, o.s.handle);
++        for (bufs, counts, eb, 0..) |b, n, e, i| {
++            const bytes = n * e;
++            const src = g.inbox.ptr + offs[i];
++            try o.copy(b, src, g.rank * bytes);
++            try o.copy(b + (g.rank + 1) * bytes, src + (g.rank + 1) * bytes, (world - 1 - g.rank) * bytes);
++        }
++    }
++
++    /// Byte-exact against NCCL's in-place all-gather for every kind and half at a few row counts.
++    pub fn verify(g: *const Gather, gpa: std.mem.Allocator, o: kern.Ops, comm: *const cuda.nccl.Communicator, shapes: Shapes) !bool {
++        var exact = true;
++        for (shapes, 0..) |parts, kind| {
++            for ([_]usize{ 1, 257, 512, 1000, g.max_n }) |n| {
++                if (n > g.max_n) continue;
++                var mine: [6]cuda.DeviceBuffer = undefined;
++                var ref: [6]cuda.DeviceBuffer = undefined;
++                var made: usize = 0;
++                defer for (mine[0..made], ref[0..made]) |*a, *b| {
++                    a.free();
++                    b.free();
++                };
++                var ptrs: [6]u64 = undefined;
++                var refs: [6]u64 = undefined;
++                var counts: [6]usize = undefined;
++                var eb: [6]usize = undefined;
++                var words: [6]usize = undefined;
++                var dts: [6]cuda.nccl.DataType = undefined;
++                var two: [6]usize = undefined;
++                for (parts, 0..) |p, i| {
++                    const bytes = n * p.elems * p.bytes;
++                    mine[i] = try cuda.DeviceBuffer.alloc(g.d, world * bytes);
++                    ref[i] = cuda.DeviceBuffer.alloc(g.d, world * bytes) catch |e| {
++                        mine[i].free();
++                        return e;
++                    };
++                    made += 1;
++                    try mine[i].fill8(0xAA, o.s.handle);
++                    try ref[i].fill8(0x55, o.s.handle);
++                    try o.prefillRingProbe(mine[i].ptr + g.rank * bytes, bytes / 2, g.rank + i);
++                    try o.prefillRingProbe(ref[i].ptr + g.rank * bytes, bytes / 2, g.rank + i);
++                    ptrs[i] = mine[i].ptr;
++                    refs[i] = ref[i].ptr;
++                    counts[i] = n * p.elems;
++                    eb[i] = p.bytes;
++                    words[i] = bytes / 2;
++                    dts[i] = .bf16;
++                    two[i] = 2;
++                }
++                const m = parts.len;
++                for (0..2) |half| {
++                    try g.gather(o, comm, kind, half, ptrs[0..m], counts[0..m], eb[0..m]);
++                }
++                try comm.allGatherInPlace(refs[0..m], words[0..m], dts[0..m], two[0..m], o.s.handle);
++                try o.s.synchronize();
++                for (mine[0..m], ref[0..m]) |a, b| {
++                    const x = try gpa.alloc(u8, a.len);
++                    defer gpa.free(x);
++                    const y = try gpa.alloc(u8, b.len);
++                    defer gpa.free(y);
++                    try a.download(0, x);
++                    try b.download(0, y);
++                    if (!std.mem.eql(u8, x, y)) {
++                        std.log.warn("prefill row gather disagrees with NCCL: kind {d}, {d} rows, rank {d}", .{ kind, n, g.rank });
++                        exact = false;
++                    }
++                }
++            }
++        }
++        return exact;
++    }
++};
 diff --git a/zig/src/families/glm_moe_dsa/cuda_prompt.zig b/zig/src/families/glm_moe_dsa/cuda_prompt.zig
-index 8b72cb3a89222d0a5bcf6ba5c84e0c9464514b15..0577084a9964ed03e50d6b2cf39a2bad7e581d86 100644
+index 8b72cb3a89222d0a5bcf6ba5c84e0c9464514b15..28903a5c2e177049f671cb4a9431a663f5d8cc6b 100644
 --- a/zig/src/families/glm_moe_dsa/cuda_prompt.zig
 +++ b/zig/src/families/glm_moe_dsa/cuda_prompt.zig
-@@ -24,6 +24,7 @@ const kern = @import("cuda_kernels.zig");
+@@ -24,6 +24,8 @@ const kern = @import("cuda_kernels.zig");
  const tri = @import("cuda_triton.zig");
  const W = @import("cuda_weights.zig");
  const fw = @import("cuda_forward.zig");
 +const Exchange = @import("cuda_prefill_exchange.zig").Exchange;
++const Gather = @import("cuda_prefill_exchange.zig").Gather;
  
  fn tyName(y: exl3.DType) []const u8 {
      return switch (y) {
-@@ -174,8 +175,8 @@ pub const Wide = struct {
+@@ -174,8 +176,8 @@ pub const Wide = struct {
  /// shared expert (+ part += sy), the dense MLP (layers 0-2), the MTP layer's rows (all of it), the head. Comm stream
  /// (the sequence-parallel chains): the bf16 reduce-scatter + residual add, the own-row fronts (norms, q_a / kv_a,
  /// the indexer's wk / weights_proj / wq_b + rope, the router), the indexer's top-k, the all-gathers, the latent /
@@ -1620,7 +1795,7 @@ index 8b72cb3a89222d0a5bcf6ba5c84e0c9464514b15..0577084a9964ed03e50d6b2cf39a2bad
  const n_phases = @typeInfo(Phase).@"enum".field_names.len;
  
  /// --prompt-prof (default off): CUDA timing events around the prompt path's phases on the main and comm streams,
-@@ -239,7 +240,7 @@ pub const Prof = struct {
+@@ -239,7 +241,7 @@ pub const Prof = struct {
          w.print("{s} {d:.1} ms:", .{ label, busy }) catch return buf[0..0];
          for (ms, 0..) |v, i| {
              if (v == 0) continue;
@@ -1629,7 +1804,7 @@ index 8b72cb3a89222d0a5bcf6ba5c84e0c9464514b15..0577084a9964ed03e50d6b2cf39a2bad
          }
          return w.buffered();
      }
-@@ -252,7 +253,7 @@ pub const Prof = struct {
+@@ -252,7 +254,7 @@ pub const Prof = struct {
          var comm_ms: [n_phases]f64 = @splat(0);
          for (p.marks.items) |m| {
              const ms: f64 = try cuda.Event.elapsedMs(p.pool.items[m.a], p.pool.items[m.b]);
@@ -1638,7 +1813,7 @@ index 8b72cb3a89222d0a5bcf6ba5c84e0c9464514b15..0577084a9964ed03e50d6b2cf39a2bad
          }
          var busy: f64 = 0;
          for (main_ms, 0..) |v, i| {
-@@ -300,7 +301,9 @@ pub const min_overlap_rows: usize = 2 * fw.max_rows + 2;
+@@ -300,7 +302,9 @@ pub const min_overlap_rows: usize = 2 * fw.max_rows + 2;
  
  const Half = struct {
      b: *const fw.Buffers,
@@ -1648,7 +1823,7 @@ index 8b72cb3a89222d0a5bcf6ba5c84e0c9464514b15..0577084a9964ed03e50d6b2cf39a2bad
      pos: u64, // device int32: the half's first position (st.pos / pos1)
      spos: u64, // device int32: its first own row's position (b.spos)
      n: usize, // own rows a rank (padded: Rp = world n)
-@@ -308,6 +311,7 @@ const Half = struct {
+@@ -308,6 +312,7 @@ const Half = struct {
      o: usize, // this rank's first own row
      nv: usize, // own rows that are real
      i: usize,
@@ -1656,23 +1831,25 @@ index 8b72cb3a89222d0a5bcf6ba5c84e0c9464514b15..0577084a9964ed03e50d6b2cf39a2bad
  };
  
  const Step = enum { start, after_attn, after_ffn };
-@@ -315,6 +319,7 @@ const Step = enum { start, after_attn, after_ffn };
+@@ -315,6 +320,8 @@ const Step = enum { start, after_attn, after_ffn };
  /// fused.compute_prompt_sp over the target's layers for one chunk (the caller sets st.pos, pos1 and b0.ids).
  pub const Sp = struct {
      main: *const fw.Forward,
 +    exchange: ?Exchange = null,
++    gather: ?Gather = null,
      side: fw.Forward, // main's settings on the comm stream (its own prompt-GEMM workspace, no cache)
      comm: *const cuda.nccl.Communicator,
      ready: [2]cuda.Event,
-@@ -339,6 +344,7 @@ pub const Sp = struct {
+@@ -339,6 +346,8 @@ pub const Sp = struct {
      }
  
      pub fn deinit(sp: *Sp) void {
 +        if (sp.exchange) |*e| e.deinit();
++        if (sp.gather) |*g| g.deinit();
          for (0..2) |i| {
              sp.ready[i].deinit();
              sp.done[i].deinit();
-@@ -347,16 +353,16 @@ pub const Sp = struct {
+@@ -347,16 +356,16 @@ pub const Sp = struct {
          sp.spos.free();
      }
  
@@ -1692,7 +1869,7 @@ index 8b72cb3a89222d0a5bcf6ba5c84e0c9464514b15..0577084a9964ed03e50d6b2cf39a2bad
          const f = sp.main;
          const D = f.w.config.hidden;
          const o = kern.Ops{ .k = f.k, .s = f.s };
-@@ -365,18 +371,32 @@ pub const Sp = struct {
+@@ -365,18 +374,32 @@ pub const Sp = struct {
          if (!spFits(f.w.world, b0.rows, b1.rows, R)) return error.WindowTooWide;
          try o.copy(b1.ids, b0.ids + hR * 8, (R - hR) * 8);
          try o.fill32(sp.pos1.ptr, @intCast(a + hR), 1);
@@ -1728,7 +1905,7 @@ index 8b72cb3a89222d0a5bcf6ba5c84e0c9464514b15..0577084a9964ed03e50d6b2cf39a2bad
              for (&hs) |*h| {
                  try f.s.wait(sp.done[h.i]);
                  if (L.experts != null) {
-@@ -386,16 +406,17 @@ pub const Sp = struct {
+@@ -386,16 +409,17 @@ pub const Sp = struct {
                      try f.mlp(h.b, L, h.R, h.b.part);
                      try f.pend(p0, .dense);
                  }
@@ -1749,7 +1926,7 @@ index 8b72cb3a89222d0a5bcf6ba5c84e0c9464514b15..0577084a9964ed03e50d6b2cf39a2bad
          }
      }
  
-@@ -403,7 +424,7 @@ pub const Sp = struct {
+@@ -403,7 +427,7 @@ pub const Sp = struct {
      /// own rows, fused._gather_x) into its column block of h.b.taps (comm stream).
      fn tap(sp: *Sp, h: *const Half, li: usize) !void {
          const f = sp.main;
@@ -1758,7 +1935,7 @@ index 8b72cb3a89222d0a5bcf6ba5c84e0c9464514b15..0577084a9964ed03e50d6b2cf39a2bad
          const slot = f.taps.slot[li];
          if (slot < 0) return;
          const D = f.w.config.hidden;
-@@ -411,7 +432,7 @@ pub const Sp = struct {
+@@ -411,7 +435,7 @@ pub const Sp = struct {
          const p0 = try sp.side.pbegin();
          try sp.comm.allGather(b.xo, b.gath, h.n * D, .bf16, sp.side.s.handle);
          const sl: usize = @intCast(slot);
@@ -1767,7 +1944,7 @@ index 8b72cb3a89222d0a5bcf6ba5c84e0c9464514b15..0577084a9964ed03e50d6b2cf39a2bad
          try sp.side.pend(p0, .ag);
      }
  
-@@ -419,15 +440,58 @@ pub const Sp = struct {
+@@ -419,15 +443,58 @@ pub const Sp = struct {
      fn chain(sp: *Sp, h: *const Half, st: *const fw.State, step: Step, li: usize, T: ?usize) !void {
          try sp.ready[h.i].record(sp.main.s);
          try sp.side.s.wait(sp.ready[h.i]);
@@ -1831,7 +2008,15 @@ index 8b72cb3a89222d0a5bcf6ba5c84e0c9464514b15..0577084a9964ed03e50d6b2cf39a2bad
                  try sp.tap(h, li);
                  if (li + 1 < w.layers.len) {
                      try sp.frontAttn(h, st, li + 1, T);
-@@ -463,6 +527,25 @@ pub const Sp = struct {
+@@ -457,12 +524,32 @@ pub const Sp = struct {
+     }
+ 
+     /// fused._ag_rows: every rank's own rows of each buffer, in place (rank r's at rows [r n, (r + 1) n)).
+-    fn agRows(sp: *Sp, h: *const Half, bufs: []const u64, row_elems: []const usize, dts: []const cuda.nccl.DataType, eb: []const usize) !void {
++    fn agRows(sp: *Sp, h: *const Half, kind: usize, bufs: []const u64, row_elems: []const usize, dts: []const cuda.nccl.DataType, eb: []const usize) !void {
+         var counts: [6]usize = undefined;
+         for (row_elems, 0..) |re, i| counts[i] = h.n * re;
++        if (sp.gather) |*g| if (h.n <= g.max_n) return g.gather(sp.ops(), sp.comm, kind, h.i, bufs, counts[0..bufs.len], eb);
          try sp.comm.allGatherInPlace(bufs, counts[0..bufs.len], dts, eb, sp.side.s.handle);
      }
  
@@ -1857,7 +2042,7 @@ index 8b72cb3a89222d0a5bcf6ba5c84e0c9464514b15..0577084a9964ed03e50d6b2cf39a2bad
      /// fused._front_attn: own rows' input norm, q_a / kv_a and the indexer's projections; gathered; every row's
      /// latent and index key into the caches; the selection of own rows (SP_SELECT), gathered.
      fn frontAttn(sp: *Sp, h: *const Half, st: *const fw.State, li: usize, T: ?usize) !void {
-@@ -479,8 +562,8 @@ pub const Sp = struct {
+@@ -479,8 +566,8 @@ pub const Sp = struct {
          const nx = b.normed + o * D * 2;
          const p0 = try f.pbegin();
          try t_.rmsnorm(b.xo, D, L.input_norm, nx, D, n, D, c.eps);
@@ -1868,7 +2053,7 @@ index 8b72cb3a89222d0a5bcf6ba5c84e0c9464514b15..0577084a9964ed03e50d6b2cf39a2bad
          try t_.rmsnorm(b.qa + o * ql * 2, ql, L.q_a_norm, b.qn + o * ql * 2, ql, n, ql, c.eps);
          var bufs: [3]u64 = .{ b.qn, b.kva, b.ik };
          var re: [3]usize = .{ ql, b.kva_n, c.index_dim };
-@@ -493,7 +576,7 @@ pub const Sp = struct {
+@@ -493,30 +580,56 @@ pub const Sp = struct {
              if (T != null) {
                  try t_.router(nx, D, ix.weights_proj, b.iw + o * c.index_heads * 4, b.rpart, n, D, c.index_heads);
                  const iq = b.iq + o * c.index_heads * c.index_dim * 2;
@@ -1877,7 +2062,10 @@ index 8b72cb3a89222d0a5bcf6ba5c84e0c9464514b15..0577084a9964ed03e50d6b2cf39a2bad
                  try t_.iqRope(iq, f.inv, h.spos, n, c.index_heads, c.index_dim, c.rope);
              }
          }
-@@ -503,13 +586,39 @@ pub const Sp = struct {
+         try f.pend(p0, .front);
+         const p1 = try f.pbegin();
+-        try sp.agRows(h, bufs[0..nb], re[0..nb], dts[0..nb], eb[0..nb]);
++        try sp.agRows(h, 0, bufs[0..nb], re[0..nb], dts[0..nb], eb[0..nb]);
          try f.pend(p1, .ag);
          const p2 = try f.pbegin();
          const m: tri.Mla = .{ .heads = w.heads, .nope = c.nope, .rope = c.rope, .lw = c.kv_lora, .vd = c.v_dim, .topk = c.index_topk };
@@ -1920,6 +2108,26 @@ index 8b72cb3a89222d0a5bcf6ba5c84e0c9464514b15..0577084a9964ed03e50d6b2cf39a2bad
          try f.pend(p3, .select);
          bufs[0] = b.tok;
          re[0] = c.index_topk;
+         dts[0] = .i32;
+         eb[0] = 4;
+         const p4 = try f.pbegin();
+-        try sp.agRows(h, bufs[0..1], re[0..1], dts[0..1], eb[0..1]);
++        try sp.agRows(h, 1, bufs[0..1], re[0..1], dts[0..1], eb[0..1]);
+         try f.pend(p4, .ag);
+     }
+ 
+@@ -532,9 +645,9 @@ pub const Sp = struct {
+         try f.pend(p0, .front);
+         const p1 = try f.pbegin();
+         if (L.experts != null) {
+-            try sp.agRows(h, &.{ b.normed, b.pick, b.wts }, &.{ D, c.top_k, c.top_k }, &.{ .bf16, .i32, .f32 }, &.{ 2, 4, 4 });
++            try sp.agRows(h, 2, &.{ b.normed, b.pick, b.wts }, &.{ D, c.top_k, c.top_k }, &.{ .bf16, .i32, .f32 }, &.{ 2, 4, 4 });
+         } else {
+-            try sp.agRows(h, &.{b.normed}, &.{D}, &.{.bf16}, &.{2});
++            try sp.agRows(h, 2, &.{b.normed}, &.{D}, &.{.bf16}, &.{2});
+         }
+         try f.pend(p1, .ag);
+     }
 diff --git a/zig/src/families/glm_moe_dsa/cuda_reuse.zig b/zig/src/families/glm_moe_dsa/cuda_reuse.zig
 index 8d71b47eeb20f1cda2f1bd45f1650d84ea8f1485..2b15ea597a5e676a21600d040538b5e3e06d6573 100644
 --- a/zig/src/families/glm_moe_dsa/cuda_reuse.zig
