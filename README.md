@@ -1,6 +1,6 @@
 # Keys GLM-5.3 EXL3 on four SM120 GPUs
 
-This project runs the **full Keys GLM-5.3 EXL3 2.75 BPW checkpoint** on one Linux host with four **NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition** GPUs (SM120, 96 GB each, 300 W per card). TensorFold serves the OpenAI-compatible API on rank 0 and runs one CUDA rank per GPU. The measured DSpark preset uses tensor parallelism (TP4), decode context parallelism (DCP4), and a **685,000-token FP8 KV pool shared by up to four active requests**.
+This project runs the **full Keys GLM-5.3 EXL3 2.75 BPW checkpoint** on one Linux host with four **NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition** GPUs (SM120, 96 GB each, 300 W per card). TensorFold serves the OpenAI-compatible API on rank 0 and runs one CUDA rank per GPU. The measured DSpark preset uses tensor parallelism (TP4), decode context parallelism (DCP4), and a **1,000,000-token (1M) FP8 KV pool shared by up to four active requests**, with **CUDA Graphs disabled**.
 
 ## Upstream sources
 
@@ -22,7 +22,7 @@ The public repository contains source, a patch, and synthetic test results. Mode
 - The launcher starts four ranks in one container and assigns CUDA devices 0–3. NCCL handles intra-host PCIe communication. Rank 0 listens on `127.0.0.1:18992` and serves model ID `model`.
 - DCP4 shards the KV cache across the four GPUs. Each MLA row has 512 E4M3 values, four FP32 scales, and 64 BF16 RoPE values. Index keys remain BF16.
 - A request reserves its tokenized input plus its requested maximum output. The reservation is released when the request finishes. Up to four requests run when their reservations fit; a request waits if the remaining token budget or contiguous range is too small. A single request can reserve the whole pool.
-- Decode uses CUDA Graphs. GPU prefix checkpoints can be reused across stream slots. Reusing a region evicts overlapping idle checkpoints.
+- The current measured native TensorFold deployment disables CUDA Graphs (`TF_GLM53_GRAPHS=0`). GPU prefix checkpoints can be reused across stream slots. Reusing a region evicts overlapping idle checkpoints.
 - The Owner Exchange preset saves intermediate prefix checkpoints every 8,192 tokens, matching its 8,192-row prefill chunks. Set `TF_GLM53_PREFILL_PROFILE=1` when starting the launcher to log rank 0's prefill phase timings, including staging the DCP history.
 - The Owner Exchange preset enables `TF_GLM53_PREFILL_AG_IPC=1` to gather prefill rows through CUDA IPC peer copies. Startup compares all three gather kinds against NCCL byte for byte across several row counts and both buffer halves. A failed equality check disables peer gathers on all ranks.
 - The DSpark preset verifies drafts from up to four requests in one target-model batch. With four streams, the verification window can hold up to 32 rows and each stream can propose up to seven draft tokens per round.
@@ -65,7 +65,7 @@ python3 -B launch_sm120.py start --preset dcp4-fp8-shared-dspark
 curl --fail http://127.0.0.1:18992/v1/models
 ```
 
-The kernel sweep must report zero missing variants. The launcher waits for all four ranks to capture graphs before reporting ready. For the HTTP smoke test, use an otherwise idle server:
+The kernel sweep must report zero missing variants. The existing launcher recipe above uses CUDA Graphs and its 685,000-token preset; the current 1M graph-off deployment is documented below. The launcher waits for all four ranks to capture graphs before reporting ready. For the HTTP smoke test, use an otherwise idle server:
 
 ```bash
 python3 -B check_fp8_four_streams.py \
@@ -73,32 +73,55 @@ python3 -B check_fp8_four_streams.py \
   --no-round-profile --shared-context 685000
 ```
 
-## Latest DSpark performance
+## Current DSpark performance: 300 W, CUDA Graphs off, 1M context
 
-On November 15, 2026, the server adopted the peer-gather change from TensorFold commit `b3c5c27`. Its deployment snapshot `dcb39b9` uses a 600,000-token shared pool, four streams, an 8,192-token checkpoint stride, and `TF_GLM53_GRAPHS=0` following a runtime OOM. These are the recorded server settings. This repository's inference-test launcher requires CUDA Graphs and uses the documented 685,000-token preset.
+Measured on November 15, 2026 on the running production TensorFold build, using four RTX PRO 6000 Blackwell Max-Q GPUs with **300 W power limits per GPU**, TP4/DCP4, shared FP8 KV, DSpark ft2, and `TF_GLM53_GRAPHS=0`. CPU/NUMA settings remained unchanged throughout this run. Startup captured zero CUDA Graphs on all four ranks, and every measured request logged zero graph replays. These are **direct measurements**, not power-normalized estimates.
 
-Measured on November 13, 2026 with the shared FP8 KV and DSpark ft2 preset. All four Max-Q GPUs reported PCIe Gen5 ×16 links and a 300 W power limit. Resizable BAR and ForceP2P were enabled, BAR1 was 128 GiB per GPU, and the driver reported peer reads and writes available between every pair of GPUs. The prefill exchange passed the BF16 startup checks against NCCL 2.30.4. Each rank captured 663 CUDA Graphs.
+The runtime includes the peer-gather change from TensorFold `b3c5c27` (production source snapshot `dcb39b9`), an 8,192-token prefill chunk and checkpoint stride, and `TF_GLM53_PREFILL_AG_IPC=1`. The archived failed decode experiment is not part of this measured build.
+
+### Code and prose decode
+
+Two batches per workload and concurrency. The requests reuse the original long-form literary-story and Python-project workloads: 92–117 prompt tokens, temperature 0, thinking disabled, and **2,048 visible output tokens per request**. Each four-request batch produces 8,192 tokens. Aggregate throughput is total completion tokens divided by the interval from the earliest first streamed content to the latest last streamed content; prefill is excluded. The displayed result is the median of two batches.
+
+| Workload | Concurrent requests | Current runs (tok/s) | Current median (tok/s) | Earlier graph-on result (tok/s) |
+| --- | ---: | ---: | ---: | ---: |
+| Literary prose | 1 | 71.6–72.0 | 71.8 | 65.7 |
+| Literary prose | 4 | 129.5–129.6 | 129.6 | 115.6 |
+| Python code | 1 | 108.5–108.5 | 108.5 | 96.7 |
+| Python code | 4 | 173.2–173.4 | 173.3 | 153.1 |
+
+**With CUDA Graphs disabled, no decode throughput regression was observed against the earlier published graph-on results for these workloads.** The earlier values come from the [original DSpark benchmark](https://github.com/catcursor/keys-glm53-sm120/blob/cb9cf84008ad4990ed09cafac09289a3835e1280/README.md#dspark-validation-and-decode-performance). This is a historical comparison across runtime revisions and shared-pool sizes, not an isolated measurement of CUDA Graph overhead. The literary-story prompts here differ from the long-essay prompts used in the later 106.5/162.0 tok/s table; those figures are not directly comparable.
 
 ### Cold prefill
 
-Two runs per prompt length. All six retrieval responses were correct, with zero cached input tokens and zero eager decode steps.
+Two runs at each of the same three context-length tiers used in the previous README. Each prompt contains a verification code near the beginning followed by repeated inventory text. A different leading run marker prevents prefix reuse. All six requests had **zero cached tokens** and returned the exact expected code. Prefill throughput is actual prompt tokens divided by the server's logged prefill time; it excludes decoding the 256-token answer.
 
-| Prompt | Cold prefill (tok/s) |
-| --- | ---: |
-| 16K | 3,600.7–3,630.8 |
-| 32K | 3,592.9–3,665.5 |
-| 66K | 3,445.4–3,458.2 |
+| Prompt tier | Actual prompt tokens | Current cold prefill (tok/s) | Earlier graph-on prefill (tok/s) | Correct retrievals |
+| --- | ---: | ---: | ---: | ---: |
+| 16K | 16,079 | 3,774.4–3,883.8 | 3,600.7–3,630.8 | 2/2 |
+| 32K | 32,079 | 3,864.9–3,945.8 | 3,592.9–3,665.5 | 2/2 |
+| 66K | 66,078 | 3,868.7–3,889.2 | 3,445.4–3,458.2 | 2/2 |
 
-### Long-form prose decode
+These prefill results also exceed the [previously published graph-on ranges](https://github.com/catcursor/keys-glm53-sm120/blob/86381ca346f80345f4dd178c7a947143ce80fc75/README.md#cold-prefill). As with decode, this compares complete deployments rather than isolating the graph setting.
 
-Each request asked for a long English essay on a different topic. Prompts were 110–113 tokens, with temperature 0 and thinking disabled. Every request produced 2,048 visible output tokens. Aggregate decode throughput divides the batch's output tokens by the time from the first streamed text to the last streamed text. The four-request batch briefly queued during admission, then all four streams produced output concurrently for 33.6 seconds. The measured batches had zero eager decode steps.
+### 1M shared context
 
-| Concurrent requests | Total output tokens | Decode interval (s) | Aggregate decode (tok/s) | Per-request decode (tok/s) |
-| ---: | ---: | ---: | ---: | ---: |
-| 1 | 2,048 | 19.23 | 106.5 | 106.5 |
-| 4 | 8,192 | 50.56 | 162.0 | 41.0–60.2 |
+The running graph-off deployment has increased its **configured maximum context to 1,000,000 tokens**. Startup allocated the shared pool successfully, and both `/v1/models` and `/tokenize` report `max_model_len=1000000`. The startup log reports **13.22 GiB of shared KV per GPU**; approximately **4.2 GiB per GPU remained free** during these measurements.
 
-In separate correctness tests, the same build passed short and 15K SQL checks, including a mixed workload. Four overlapping 10K retrieval requests returned their expected answers, and a warm request reused a 16,384-token prefix.
+This is one total pool shared by up to four active requests. A request's input plus reserved output must fit within it; it is not 1M tokens per concurrent request. The 1M figure is the verified running configuration and allocation. This benchmark measures prefill only at the three lengths above and does not establish full-1M-prompt throughput or retrieval accuracy.
+
+The measured runtime uses the existing model, AOT pack, output-head and DSpark settings, with these capacity settings inside its configured container:
+
+```bash
+export TF_GLM53_GRAPHS=0
+export TF_GLM53_SHARED_KV=1
+export TF_GLM53_FP8_KV=1
+export TF_GLM53_DCP=4
+export TF_GLM53_DCP_STREAMS_RESERVE_GB=12
+bash /port/run-ranks.sh 18992 1000000 4
+```
+
+The existing `launch_sm120.py` and `check_fp8_four_streams.py` graph-capture checks still describe the graph-on validation recipe above; they are not the graph-off benchmark runner.
 
 ## DSpark prefix-reuse regression
 
