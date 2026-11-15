@@ -1,0 +1,281 @@
+diff --git a/tools/glm53/sweep_aot.py b/tools/glm53/sweep_aot.py
+index a74d5c7..22adb2e 100644
+--- a/tools/glm53/sweep_aot.py
++++ b/tools/glm53/sweep_aot.py
+@@ -37,6 +37,7 @@ sys.path.insert(0, str(HERE))
+ # where each function the Zig engine launches lives (cuda_triton.zig's Python call sites); a template's manifest
+ # ("function": module.qualname) takes precedence
+ MODULES = {
++    "_decode_router_topk": "decode_router_topk",
+     "_rmsnorm": "tensorfold.families.glm5_next.cuda.glue",
+     "_router_part": "tensorfold.families.glm5_next.cuda.glue",
+     "_router_sum": "tensorfold.families.glm5_next.cuda.glue",
+diff --git a/zig/src/cuda/aot.zig b/zig/src/cuda/aot.zig
+index d48ac24..ca4f44b 100644
+--- a/zig/src/cuda/aot.zig
++++ b/zig/src/cuda/aot.zig
+@@ -111,11 +111,52 @@ pub fn pickVariant(specs: []const KernelJson, function: []const u8, args: []cons
+     return found orelse error.MissingTritonVariant;
+ }
+ 
++/// Built once from the immutable catalog. Names borrow the parsed catalog's storage;
++/// each list keeps its original order so duplicate and ambiguous matches are unchanged.
++const FunctionIndex = struct {
++    by_name: std.StringHashMapUnmanaged(std.ArrayList(usize)) = .empty,
++
++    fn init(gpa: std.mem.Allocator, specs: []const KernelJson) !FunctionIndex {
++        var index: FunctionIndex = .{};
++        errdefer index.deinit(gpa);
++        for (specs, 0..) |k, i| {
++            const entry = try index.by_name.getOrPut(gpa, k.@"fn");
++            if (!entry.found_existing) entry.value_ptr.* = .empty;
++            try entry.value_ptr.append(gpa, i);
++        }
++        return index;
++    }
++
++    fn deinit(index: *FunctionIndex, gpa: std.mem.Allocator) void {
++        var values = index.by_name.valueIterator();
++        while (values.next()) |indices| indices.deinit(gpa);
++        index.by_name.deinit(gpa);
++        index.* = .{};
++    }
++
++    fn pick(index: *const FunctionIndex, specs: []const KernelJson, function: []const u8, args: []const Arg, consts: []const Const, opts: Launch) PickError!usize {
++        const indices = index.by_name.get(function) orelse return error.MissingTritonVariant;
++        var found: ?usize = null;
++        for (indices.items) |i| {
++            const k = specs[i];
++            if (!opts.admits(k) or !matches(k, args, consts)) continue;
++            if (found) |f| {
++                const a = specs[f];
++                if (a.num_warps != k.num_warps or a.num_stages != k.num_stages) return error.AmbiguousTritonVariant;
++                continue;
++            }
++            found = i;
++        }
++        return found orelse error.MissingTritonVariant;
++    }
++};
++
+ const Variant = struct { spec: KernelJson, kernel: triton.Kernel };
+ 
+ pub const Set = struct {
+     parsed: std.json.Parsed(SetJson),
+     variants: []Variant,
++    function_index: FunctionIndex,
+     gpa: std.mem.Allocator,
+ 
+     /// Loads every cubin listed in `dir`/aot.json into its own module.
+@@ -126,6 +167,8 @@ pub const Set = struct {
+         defer gpa.free(text);
+         const parsed = try std.json.parseFromSlice(SetJson, gpa, text, .{ .ignore_unknown_fields = true, .allocate = .alloc_always });
+         errdefer parsed.deinit();
++        var function_index = try FunctionIndex.init(gpa, parsed.value.kernels);
++        errdefer function_index.deinit(gpa);
+         const variants = try gpa.alloc(Variant, parsed.value.kernels.len);
+         var n: usize = 0;
+         errdefer {
+@@ -144,12 +187,13 @@ pub const Set = struct {
+             variants[n] = .{ .spec = k, .kernel = try triton.Kernel.load(d, device, cubin, meta, name_z) };
+             n += 1;
+         }
+-        return .{ .parsed = parsed, .variants = variants, .gpa = gpa };
++        return .{ .parsed = parsed, .variants = variants, .function_index = function_index, .gpa = gpa };
+     }
+ 
+     pub fn deinit(self: *Set) void {
+         for (self.variants) |*v| v.kernel.unload();
+         self.gpa.free(self.variants);
++        self.function_index.deinit(self.gpa);
+         self.parsed.deinit();
+         self.* = undefined;
+     }
+@@ -161,7 +205,7 @@ pub const Set = struct {
+ 
+     pub fn findWith(self: *const Set, function: []const u8, args: []const Arg, consts: []const Const, opts: Launch) !*const Variant {
+         // variants[i] was loaded from parsed.value.kernels[i]
+-        if (pickVariant(self.parsed.value.kernels, function, args, consts, opts)) |i| return &self.variants[i] else |e| {
++        if (self.function_index.pick(self.parsed.value.kernels, function, args, consts, opts)) |i| return &self.variants[i] else |e| {
+             if (e == error.AmbiguousTritonVariant) {
+                 std.log.err("several captured Triton variants of {s} match; pin num_warps/num_stages (Launch)", .{function});
+                 return e;
+@@ -475,3 +519,76 @@ test "a single captured variant needs no pin, and a set without num_stages match
+     try std.testing.expectError(error.MissingTritonVariant, pickVariant(ks, "_norm", &x, &d, .{ .num_warps = 4 }));
+     try std.testing.expectError(error.MissingTritonVariant, pickVariant(ks, "_nope", &x, &d, .{}));
+ }
++
++fn expectIndexedPick(index: *const FunctionIndex, specs: []const KernelJson, function: []const u8, args: []const Arg, consts: []const Const, opts: Launch) !void {
++    if (pickVariant(specs, function, args, consts, opts)) |expected| {
++        try std.testing.expectEqual(expected, try index.pick(specs, function, args, consts, opts));
++    } else |expected| {
++        try std.testing.expectError(expected, index.pick(specs, function, args, consts, opts));
++    }
++}
++
++test "function index preserves catalog order, specialization and ambiguity without caching runtime values" {
++    const gpa = std.testing.allocator;
++    const parsed = try parseTestSet();
++    defer parsed.deinit();
++    var other_consts: std.json.ArrayHashMap(ConstJson) = .{};
++    defer other_consts.map.deinit(gpa);
++    try other_consts.map.put(gpa, "CHK", .{ .int = 512 });
++    try other_consts.map.put(gpa, "SCALE", .{ .f32 = 1031798784 });
++    const unaligned_params = [_]ParamJson{
++        .{ .name = "Q", .type = "*bf16", .div16 = false, .nospec = false },
++        .{ .name = "R", .type = "i32", .div16 = true, .nospec = false },
++    };
++    const aligned_params = [_]ParamJson{
++        .{ .name = "Q", .type = "*bf16", .div16 = true, .nospec = false },
++        .{ .name = "R", .type = "i32", .div16 = true, .nospec = false },
++    };
++    var specs: [9]KernelJson = undefined;
++    @memcpy(specs[0..5], parsed.value.kernels);
++    for (5..specs.len) |i| specs[i] = specs[0];
++    // A duplicate after another function must still select the original index 0.
++    specs[6].params = @constCast(&unaligned_params);
++    specs[7].params = @constCast(&aligned_params);
++    specs[8].consts = other_consts;
++    var index = try FunctionIndex.init(gpa, &specs);
++    defer index.deinit(gpa);
++    try std.testing.expectEqualSlices(usize, &.{ 0, 1, 2, 3, 5, 6, 7, 8 }, index.by_name.get("_attn").?.items);
++    try std.testing.expectEqualSlices(usize, &.{4}, index.by_name.get("_norm").?.items);
++
++    const opts = [_]Launch{ .{}, .{ .num_warps = 4 }, .{ .num_warps = 8 }, .{ .num_warps = 4, .num_stages = 2 }, .{ .num_warps = 8, .num_stages = 1 }, .{ .num_warps = 4, .num_stages = 3 } };
++    for ([_]u64{ 0x1000, 0x2000, 0x1008, 0x2008 }) |address| {
++        for ([_]i32{ 1, 3, 5, 16, 32 }) |rows| {
++            const args = [_]Arg{ ptr("Q", "*bf16", address), int("R", rows) };
++            for ([_]i64{ 256, 512, 2048 }) |chk| {
++                const consts = [_]Const{ ci("CHK", chk), cf("SCALE", 0.0625) };
++                for (opts) |o| try expectIndexedPick(&index, &specs, "_attn", &args, &consts, o);
++            }
++        }
++    }
++    const args = [_]Arg{ ptr("Q", "*bf16", 0x1000), int("R", 3) };
++    const consts = [_]Const{ ci("CHK", 256), cf("SCALE", 0.0625) };
++    try std.testing.expectEqual(@as(usize, 0), try index.pick(&specs, "_attn", &args, &consts, .{ .num_warps = 4, .num_stages = 2 }));
++    try std.testing.expectError(error.AmbiguousTritonVariant, index.pick(&specs, "_attn", &args, &consts, .{}));
++    const wrong_scale = [_]Const{ ci("CHK", 256), cf("SCALE", 0.125) };
++    try expectIndexedPick(&index, &specs, "_attn", &args, &wrong_scale, .{});
++    const x = [_]Arg{ptr("X", "*bf16", 0x2000)};
++    const d = [_]Const{ci("D", 6144)};
++    for (opts) |o| {
++        try expectIndexedPick(&index, &specs, "_norm", &x, &d, o);
++        try expectIndexedPick(&index, &specs, "_nope", &x, &d, o);
++    }
++}
++
++test "function index releases partial lists when any allocation fails" {
++    const parsed = try parseTestSet();
++    defer parsed.deinit();
++    const Case = struct {
++        fn run(gpa: std.mem.Allocator, specs: []const KernelJson) !void {
++            var index = try FunctionIndex.init(gpa, specs);
++            defer index.deinit(gpa);
++            try std.testing.expectEqual(@as(usize, 2), index.by_name.count());
++        }
++    };
++    try std.testing.checkAllAllocationFailures(std.testing.allocator, Case.run, .{parsed.value.kernels});
++}
+diff --git a/zig/src/families/glm_moe_dsa/cuda_coverage.zig b/zig/src/families/glm_moe_dsa/cuda_coverage.zig
+index b5143d2..83e8791 100644
+--- a/zig/src/families/glm_moe_dsa/cuda_coverage.zig
++++ b/zig/src/families/glm_moe_dsa/cuda_coverage.zig
+@@ -124,6 +124,10 @@ fn window(t: tri.Tri, sp: Space, R: usize) !void {
+     for ([_]usize{ c.index_heads, c.index_dim, c.experts, sp.vocab_part }) |ne| try t.router(A, D, A, A, A, R, D, ne);
+     if (sp.mtp) try t.router(A, 2 * D, A, A, A, R, 2 * D, D);
+     try t.topk(A, A, A, A, R, c.experts, c.top_k, c.routed_scaling, c.norm_topk);
++    // Only decode/verify buffers use the fused finalizer; all prefill and other router uses retain their keys.
++    if (R <= 32 and D % (tri.router_ks * 64) == 0) {
++        try t.routerTopk(A, D, A, A, A, A, A, A, R, D, c.experts, c.top_k, c.routed_scaling, c.norm_topk);
++    }
+     try t.iqRope(A, A, A, R, c.index_heads, c.index_dim, c.rope);
+     for (sp.dcps) |dcp| {
+         for (0..ranksOf(dcp)) |rank| {
+diff --git a/zig/src/families/glm_moe_dsa/cuda_forward.zig b/zig/src/families/glm_moe_dsa/cuda_forward.zig
+index 0b9303d..d931323 100644
+--- a/zig/src/families/glm_moe_dsa/cuda_forward.zig
++++ b/zig/src/families/glm_moe_dsa/cuda_forward.zig
+@@ -122,6 +122,8 @@ pub const Buffers = struct {
+     rows: usize,
+     score_cols: usize,
+     small: usize,
++    /// True only for decode/verify allocations. Short prefill buffers keep the original router path.
++    decode: bool = false,
+     mem: std.ArrayList(cuda.DeviceBuffer) = .empty,
+     gpa: std.mem.Allocator,
+     x: u64 = 0, // bf16 [rows, D]
+@@ -238,7 +240,7 @@ pub const Buffers = struct {
+         if (rows > max_rows and !opts.prompt) return error.WindowTooWide;
+         if (rows > max_prompt_rows) return error.WindowTooWide;
+         if (opts.decode and rows > decode_rows) return error.WindowTooWide;
+-        var b: Buffers = .{ .d = d, .gpa = gpa, .rows = rows, .score_cols = score_cols, .small = if (opts.decode) @max(rows, fast_rows) else fast_rows };
++        var b: Buffers = .{ .d = d, .gpa = gpa, .rows = rows, .score_cols = score_cols, .small = if (opts.decode) @max(rows, fast_rows) else fast_rows, .decode = opts.decode };
+         errdefer b.deinit();
+         const D = c.hidden;
+         const H = w.heads;
+@@ -1515,6 +1517,9 @@ pub const Forward = struct {
+         const c = f.w.config;
+         const t_ = f.t();
+         const D = c.hidden;
++        if (b.decode and n <= decode_rows and D % (tri.router_ks * 64) == 0) {
++            return t_.routerTopk(b.normed + r0 * D * 2, D, L.router_w, b.mlog + r0 * c.experts * 4, b.rpart, L.router_bias, b.pick + r0 * c.top_k * 4, b.wts + r0 * c.top_k * 4, n, D, c.experts, c.top_k, c.routed_scaling, c.norm_topk);
++        }
+         try t_.router(b.normed + r0 * D * 2, D, L.router_w, b.mlog + r0 * c.experts * 4, b.rpart, n, D, c.experts);
+         try t_.topk(b.mlog + r0 * c.experts * 4, L.router_bias, b.pick + r0 * c.top_k * 4, b.wts + r0 * c.top_k * 4, n, c.experts, c.top_k, c.routed_scaling, c.norm_topk);
+     }
+diff --git a/zig/src/families/glm_moe_dsa/cuda_mdraft.zig b/zig/src/families/glm_moe_dsa/cuda_mdraft.zig
+index d63ff60..7182be0 100644
+--- a/zig/src/families/glm_moe_dsa/cuda_mdraft.zig
++++ b/zig/src/families/glm_moe_dsa/cuda_mdraft.zig
+@@ -445,6 +445,7 @@ pub const MultiDrafter = struct {
+         try o.download(std.mem.sliceAsBytes(all), md.v.b.cand);
+         try o.download(std.mem.sliceAsBytes(ex), md.v.b.cand + sp.world * md.send_words * 4);
+         try o.s.synchronize();
++        md.inflight = false; // Prior tap staging uploads on this stream are complete.
+         const b = md.base;
+         for (0..bp.S) |s| {
+             const a = asks[bp.ask[s]];
+diff --git a/zig/src/families/glm_moe_dsa/cuda_multi.zig b/zig/src/families/glm_moe_dsa/cuda_multi.zig
+index 144943c..b5263b5 100644
+--- a/zig/src/families/glm_moe_dsa/cuda_multi.zig
++++ b/zig/src/families/glm_moe_dsa/cuda_multi.zig
+@@ -1757,9 +1757,15 @@ pub const Multi = struct {
+             const sm = s.sampling orelse return error.OutOfStep;
+             cnt = @max(cnt, @min(sm.candidates(), mu.V));
+         }
+-        const ids = mu.pinSlice(i64, mu.play.rd, R);
++        // With no MTP steps, the uploaded host IDs are unchanged by verification.
++        const ids: []const i64 = if (mu.k == 0)
++            t.vids[0..R]
++        else blk: {
++            const staged = mu.pinSlice(i64, mu.play.rd, R);
++            try o.download(std.mem.sliceAsBytes(staged), vb.ids);
++            break :blk staged;
++        };
+         const amax = mu.pinSlice(i64, mu.play.rd + mu.rows * 8, R);
+-        try o.download(std.mem.sliceAsBytes(ids), vb.ids);
+         var all: []f32 = &.{};
+         var stride: usize = 0;
+         var ranks: usize = 1;
+diff --git a/zig/src/families/glm_moe_dsa/cuda_triton.zig b/zig/src/families/glm_moe_dsa/cuda_triton.zig
+index fd3687e..15af571 100644
+--- a/zig/src/families/glm_moe_dsa/cuda_triton.zig
++++ b/zig/src/families/glm_moe_dsa/cuda_triton.zig
+@@ -79,6 +79,16 @@ pub const Tri = struct {
+         try t.run("_router_sum", .{ cdiv(total, 1024), 1, 1 }, &.{ p("PART", "*fp32", part), p("OUT", "*fp32", out), int("total", total) }, &.{ ci("KS", router_ks), ci("BLOCK", 1024) }, .{ .num_warps = 4 });
+     }
+ 
++    /// Decode MoE router: the unchanged sliced dot, then rank-independent slice summation and top-k in one
++    /// launch. The fused finalizer still stores logits and keeps the original FP32 slice/pick reduction order.
++    /// SLOTS = k, as topk below: the shared expert is combined separately by the native forward path.
++    pub fn routerTopk(t: Tri, x: u64, x_stride: usize, w: u64, logits: u64, part: u64, bias: u64, pick: u64, wts: u64, m: usize, d: usize, ne: usize, k: usize, scale: f32, norm: bool) !void {
++        if (d % (router_ks * 64) != 0) return error.RouterUnsliced;
++        const bm: usize = if (m <= 16) 16 else if (m <= 32) 32 else if (m <= 64) 64 else 128;
++        try t.run("_router_part", .{ cdiv(m, bm), cdiv(ne, 32), router_ks }, &.{ p("X", "*bf16", x), p("W", "*bf16", w), p("PART", "*fp32", part), int("M", m), int("x_stride", x_stride) }, &.{ ci("D", d), ci("NE", ne), ci("BM", bm), ci("BLOCK_E", 32), ci("BK", 64), ci("KS", router_ks) }, .{ .num_warps = 4, .num_stages = 3 });
++        try t.run("_decode_router_topk", .{ m, 1, 1 }, &.{ p("PART", "*fp32", part), p("L", "*fp32", logits), p("BIAS", "*fp32", bias), p("PICK", "*i32", pick), p("WTS", "*fp32", wts), int("total", m * ne), aot.float("scale", scale) }, &.{ ci("KS", router_ks), ci("NE", ne), ci("TOPK", k), ci("SLOTS", k), ci("BLOCK", pow2(ne + 1)), ci("SLOTP", pow2(k + 1)), cb("NORM", norm) }, .{ .num_warps = 4 });
++    }
++
+     /// fused.route's glue._topk: sigmoid scores + bias pick TOPK experts (lower id on ties), weights normalized and
+     /// scaled; SLOTS = TOPK (no shared slot).
+     pub fn topk(t: Tri, logits: u64, bias: u64, pick: u64, wts: u64, rows: usize, ne: usize, k: usize, scale: f32, norm: bool) !void {
