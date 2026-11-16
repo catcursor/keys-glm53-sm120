@@ -1,6 +1,6 @@
 # Keys GLM-5.3 EXL3 on four SM120 GPUs
 
-This project runs the **full Keys GLM-5.3 EXL3 2.75 BPW checkpoint** on one Linux host with four **NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition** GPUs (SM120, 96 GB each, 300 W per card). TensorFold serves the OpenAI-compatible API on rank 0 and runs one CUDA rank per GPU. The measured DSpark preset uses tensor parallelism (TP4), decode context parallelism (DCP4), and a **1,000,000-token (1M) FP8 KV pool shared by up to four active requests**, with **CUDA Graphs disabled**.
+This project runs the **full Keys GLM-5.3 EXL3 2.75 BPW checkpoint** on one Linux host with four **NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition** GPUs (SM120, 96 GB each; latest decode measurements at 268 W per card). TensorFold serves the OpenAI-compatible API on rank 0 and runs one CUDA rank per GPU. The measured DSpark preset uses tensor parallelism (TP4), decode context parallelism (DCP4), and a **1,000,000-token (1M) FP8 KV pool shared by up to four active requests**, with **CUDA Graphs disabled**.
 
 ## Upstream sources
 
@@ -26,6 +26,19 @@ The public repository contains source, a patch, and synthetic test results. Mode
 - The Owner Exchange preset saves intermediate prefix checkpoints every 8,192 tokens, matching its 8,192-row prefill chunks. Set `TF_GLM53_PREFILL_PROFILE=1` when starting the launcher to log rank 0's prefill phase timings, including staging the DCP history.
 - The Owner Exchange preset enables `TF_GLM53_PREFILL_AG_IPC=1` to gather prefill rows through CUDA IPC peer copies. Startup compares all three gather kinds against NCCL byte for byte across several row counts and both buffer halves. A failed equality check disables peer gathers on all ranks.
 - The DSpark preset verifies drafts from up to four requests in one target-model batch. With four streams, the verification window can hold up to 32 rows and each stream can propose up to seven draft tokens per round.
+
+## Decode attention without changing precision
+
+The FP8 DCP decode kernel avoids two sources of redundant work while keeping the cache format and arithmetic precision unchanged:
+
+- A fully masked tile skips its unused query/key dot products and softmax. It still executes the original-shaped value dot and accumulator updates on opaque zero/one operands, preserving the empty-tile floating-point behavior.
+- Each cache row's four FP32 scales are loaded once as four values and broadcast over their 128-value groups. Every latent element still undergoes the same FP8-to-FP32 conversion, one FP32 multiplication and BF16 conversion.
+
+These paths apply to the existing `CHK=256, KTT=32` decode tiling; the scale path additionally requires `LW=512`. Query/key and value dot products for valid tiles, softmax reductions, chunk/rank ordering and sampling are unchanged. KV writers, unpack and prefill kernels retain their existing implementations. No new lower-precision computation or approximate attention is introduced.
+
+On SM120, the tested attention implementation passed 24 direct loader checks and a 986-check matrix with bitwise-identical outputs, including special floating-point values and mixed stream slots. The end-to-end measurements and additional correctness checks are recorded below. The committed attention functions and their transitive JIT dependencies match that tested implementation; the unused experimental FMA helper is excluded.
+
+The native runtime consumes AOT cubins, so editing this Python file alone does not update a running server. Rebuild the decode AOT entries with the existing FP8 launch settings (`num_warps=4, num_stages=1`) and run variant coverage and model validation. When updating the audited 370-entry production pack, replace all 36 matching decode records with their 24 unique newly compiled keys, retain the other 334 records and cubins byte for byte, and require one match per target launch. The result has 358 records. Appending a second set with a merge-only operation can leave duplicate matching keys and select an older kernel. Fresh builds can use the repository's normal `compile-aot.sh` workflow; the 334-record retention rule applies specifically to replacing the audited existing pack.
 
 ## Reproduce on Linux
 
@@ -73,7 +86,23 @@ python3 -B check_fp8_four_streams.py \
   --no-round-profile --shared-context 685000
 ```
 
-## Current DSpark performance: 300 W, CUDA Graphs off, 1M context
+## Current decode performance: 268 W, CUDA Graphs off, 1M context
+
+Measured on November 17, 2026 (Asia/Shanghai), with TP4/DCP4, shared FP8 KV, DSpark ft2 and `TF_GLM53_GRAPHS=0`. Both baseline and optimized runs used **268 W per GPU** and identical CPU/NUMA settings. The original native executable, weights, quantization, sampling policy and 1,000,000-token shared KV allocation were retained. Only the decode attention AOT variants changed.
+
+Each case used one warmup followed by five measured requests with a warm prefix cache, `temperature=0`, seed `20261115` and 512 generated tokens. Values below are median server-reported decode throughput; they exclude prefill. The [measurement record](benchmark-decode-268w.json) includes every measured throughput sample and artifact hashes.
+
+| Workload | Baseline tok/s | Optimized tok/s | Improvement |
+| --- | ---: | ---: | ---: |
+| Short prose | 72.1 | 81.6 | **13.18%** |
+| Code | 104.9 | 116.3 | **10.87%** |
+| Prose with a 16K prompt | 64.8 | 70.4 | **8.64%** |
+
+All three cases exceed the 3% retention threshold. Prompt/token hashes, generated output, verification rounds and draft acceptance counts matched the baseline. Cold/warm/changed-tail 32K retrieval checks and four-stream checks passed. The combined kernel also passed 24 direct-loader and 986 attention bitwise checks; the preceding tail change independently passed 986 checks. All 24 sampled draft-on/off pairs passed for short and 16K inputs, two sampling configurations and solo/four-stream execution, and matched the prior bitwise-validated candidate across runs.
+
+All four ranks captured zero CUDA Graphs. Startup and the model API confirm a **1,000,000-token shared pool** (13.22 GiB per GPU); this is a total pool for up to four active requests. These tests do not measure full-1M-prompt throughput or retrieval accuracy. The 300 W prefill and decode results below are earlier measurements with their original power setting.
+
+## Previous DSpark performance: 300 W, CUDA Graphs off, 1M context
 
 Measured on November 15, 2026 on the running production TensorFold build, using four RTX PRO 6000 Blackwell Max-Q GPUs with **300 W power limits per GPU**, TP4/DCP4, shared FP8 KV, DSpark ft2, and `TF_GLM53_GRAPHS=0`. CPU/NUMA settings remained unchanged throughout this run. Startup captured zero CUDA Graphs on all four ranks, and every measured request logged zero graph replays. These are **direct measurements**, not power-normalized estimates.
 

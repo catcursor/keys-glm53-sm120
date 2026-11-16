@@ -151,6 +151,29 @@ def _kv_sparse_unpack(LC, DST, MAP, OFF, END, PAD, TILES, DCP: tl.constexpr,
     tl.store(DST + pos[:, None] * 576 + 512 + rope[None, :], key, live[:, None])
 
 
+# Decode-only helpers: preserve the tested arithmetic and existing prefill paths.
+@triton.jit
+def _tail_opaque_f32(BITS: tl.constexpr):
+    return tl.inline_asm_elementwise(
+        "mov.b32 $0, $1;", constraints="=f,r",
+        args=[tl.full((), BITS, tl.int32)], dtype=tl.float32,
+        is_pure=False, pack=1)
+
+@triton.jit
+def _load_rows_scale4(LC, rows, valid, k, rope):
+    N: tl.constexpr = rows.shape[0]
+    f32 = tl.cast(LC, tl.pointer_type(tl.float32))
+    bf16 = tl.cast(LC, tl.pointer_type(tl.bfloat16))
+    raw = tl.load(LC + rows[:, None] * 656 + k[None, :], valid[:, None], 0)
+    quantized = raw.to(tl.float8e4nv, bitcast=True).to(tl.float32)
+    group = tl.arange(0, 4)
+    scale = tl.load(f32 + rows[:, None] * 164 + 128 + group[None, :], valid[:, None], 0)
+    # Each original element still has exactly one FP32 multiply, then BF16 cast.
+    latent = tl.reshape(tl.reshape(quantized, (N, 4, 128)) * scale[:, :, None], (N, 512)).to(tl.bfloat16)
+    key = tl.load(bf16 + rows[:, None] * 328 + 264 + rope[None, :], valid[:, None], 0)
+    return latent, key
+
+
 @triton.jit
 def _attn_dcp_fp8(QALL, LC, TOK, CNT, POS, PO, PM, PL, R, H: tl.constexpr,
                   G: tl.constexpr, LW: tl.constexpr, RD: tl.constexpr, K: tl.constexpr,
@@ -199,23 +222,35 @@ def _attn_dcp_fp8_impl(QALL, LC, TOK, CNT, POS, BASE, PO, PM, PL, R, H: tl.const
         ql = tl.load(qb + kl[None, :])
         qr = tl.load(qb + LW + kr[None, :])
         for t in range(CHK // KTT):
-            idx = start + t * KTT + tl.arange(0, KTT)
-            ok = idx < n
-            if p < K:
-                row = idx.to(tl.int64)
+            if CHK != 256 or KTT != 32 or start + t * KTT < n:
+                idx = start + t * KTT + tl.arange(0, KTT)
+                ok = idx < n
+                if p < K:
+                    row = idx.to(tl.int64)
+                else:
+                    row = tl.load(TOK + r * K + idx, mask=ok, other=0).to(tl.int64)
+                if CHK == 256 and KTT == 32 and LW == 512:
+                    kv, kro = _load_rows_scale4(LC, slot + row, ok, kl, kr)
+                else:
+                    kv, kro = _load_rows(LC, slot + row, ok, kl, kr)
+                s = (tl.dot(ql, tl.trans(kv)) + tl.dot(qr, tl.trans(kro))) * SCALE
+                s = tl.where(ok[None, :], s, float("-inf"))
+                tile_m = tl.max(s, 1)
+                active = tile_m != float("-inf")
+                next_m = tl.where(active, tl.maximum(m, tile_m), m)
+                alpha = tl.where(active, tl.where(m == float("-inf"), 0.0, tl.exp(m - next_m)), 1.0)
+                pr = tl.where(ok[None, :] & active[:, None], tl.exp(s - next_m[:, None]), 0.0)
+                o = o * alpha[:, None] + tl.dot(pr.to(tl.bfloat16), kv)
+                l = l * alpha + tl.sum(pr, 1)
+                m = next_m
             else:
-                row = tl.load(TOK + r * K + idx, mask=ok, other=0).to(tl.int64)
-            kv, kro = _load_rows(LC, slot + row, ok, kl, kr)
-            s = (tl.dot(ql, tl.trans(kv)) + tl.dot(qr, tl.trans(kro))) * SCALE
-            s = tl.where(ok[None, :], s, float("-inf"))
-            tile_m = tl.max(s, 1)
-            active = tile_m != float("-inf")
-            next_m = tl.where(active, tl.maximum(m, tile_m), m)
-            alpha = tl.where(active, tl.where(m == float("-inf"), 0.0, tl.exp(m - next_m)), 1.0)
-            pr = tl.where(ok[None, :] & active[:, None], tl.exp(s - next_m[:, None]), 0.0)
-            o = o * alpha[:, None] + tl.dot(pr.to(tl.bfloat16), kv)
-            l = l * alpha + tl.sum(pr, 1)
-            m = next_m
+                zero = _tail_opaque_f32(0)
+                one = _tail_opaque_f32(1065353216)
+                alpha = tl.broadcast_to(one, (H,))
+                pr = tl.broadcast_to(zero, (H, KTT))
+                kv = tl.broadcast_to(zero, (KTT, LW)).to(tl.bfloat16)
+                o = o * alpha[:, None] + tl.dot(pr.to(tl.bfloat16), kv)
+                l = l * alpha + tl.sum(pr, 1)
     base = (c * R + r) * (G * H) + grp * H + hh
     tl.store(PO + base[:, None] * LW + kl[None, :], o)
     tl.store(PM + base, m)
