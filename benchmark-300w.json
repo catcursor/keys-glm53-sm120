@@ -1,0 +1,1843 @@
+{
+  "schema_version": 1,
+  "status": "passed",
+  "mode": "all",
+  "started_utc": "2026-11-17T02:50:39.447320+00:00",
+  "run_id": "20261117-300w-final-01",
+  "legacy_sources_sha256": {
+    "readme-bench-decode.py": "a77ec63b5a69e0609ccf7e09fbda99ae4b75e6cb00c9ebfb80efad51ca8d6a07",
+    "readme-bench-prefill.py": "b3a6c93a0c705583a7794487a828f6c138b97b43cfaa317b7333b2029d226425"
+  },
+  "api": "http://127.0.0.1:18992",
+  "container": "keys-deploy-numa-lmcache-20261117",
+  "requests": {
+    "prose_0": {
+      "prompt_tokens": 93,
+      "request_sha256": "f3efec8b26ffde06ffed68f15541979cada8750e1b771b9f274574389fadf20d",
+      "prompt_ids_sha256": "c513b03081d53030b02fb11a6a9ddc99338da8e0b10a4d266f204dc45969f520"
+    },
+    "prose_1": {
+      "prompt_tokens": 93,
+      "request_sha256": "378a6f3009d6b62051ce54eb560cec1df4acc16fb1cb6936ad95636b89ff35cf",
+      "prompt_ids_sha256": "497902ad1e47c08e64548ef09c74e507efafd164632ef026e152e98268aafc59"
+    },
+    "prose_2": {
+      "prompt_tokens": 92,
+      "request_sha256": "54096aa37e760e12e0f0b8d2122e38106ad55476ef027cec1a6f52946643d0e0",
+      "prompt_ids_sha256": "1b84ebe51c9da9a3e47e23cc56ae22a4fd0a199742730fb31255afbb2cf7edf9"
+    },
+    "prose_3": {
+      "prompt_tokens": 92,
+      "request_sha256": "3ee1ecdd66fedc9619db99d7771c47aa4b08d316d4817088a9facfa0a55cd758",
+      "prompt_ids_sha256": "886f800a76df748eb8f8e108d362fb7bf76bb34f53f496cf4ad58b5451e11239"
+    },
+    "code_0": {
+      "prompt_tokens": 117,
+      "request_sha256": "f246b742bb906dd4c02360252f0062a2e5d6c49e5d9cbc7d8f8c0d37c181cc4f",
+      "prompt_ids_sha256": "6abfe619970acd3eb34f1e720d0d549c9dc770384a5682c24b7eb70e96615696"
+    },
+    "code_1": {
+      "prompt_tokens": 112,
+      "request_sha256": "5da8a0b528e667b62d279862ad0b905c086f1ead41c17c19b091340ea828f883",
+      "prompt_ids_sha256": "445730cb90416fa87a523cf77510f2fcc378deec65bcfdd885fb9229c6d854eb"
+    },
+    "code_2": {
+      "prompt_tokens": 115,
+      "request_sha256": "79e678f2dc12909482a88468a62f331c70a38c35bc77ed33e5f43fa37c2ead87",
+      "prompt_ids_sha256": "2fb1398cf9af2a4f7fc112cabc7de1815cc508f57f3c3c48b47dd20918c964b3"
+    },
+    "code_3": {
+      "prompt_tokens": 113,
+      "request_sha256": "f24c93f4ad64ff710aeded010fc4342918c8ad8910dc4a300a8e80d4d9bd1c64",
+      "prompt_ids_sha256": "a36cd3b18577f61ab0fc30cc310d9e66754dee63712fbe5f2d286760e2a87f21"
+    },
+    "cold-16k-r1": {
+      "prompt_tokens": 16085,
+      "request_sha256": "6089cbd3ea6f708c1c38d738e97996f5e9b5ebba2058c23f9670893a80a0d7ce",
+      "prompt_ids_sha256": "25cd8b291fabf73d6d79d94afcfdbeebb6dd5edd7a2ed4e9640fa56663451df9"
+    },
+    "cold-32k-r1": {
+      "prompt_tokens": 32085,
+      "request_sha256": "2e57aab9c67bf8c4fd55d809bba05f7af72d2c29d6a6aeed280560fe399948b7",
+      "prompt_ids_sha256": "68b5bdb4519dabd7218974a9c36a7395e26c82b4442a3cec6f52b9e4ff193b7c"
+    },
+    "cold-66k-r1": {
+      "prompt_tokens": 66084,
+      "request_sha256": "c6c9f1b72bd5eea5913711cc5fcf7985c4a1b366e7fbe45031acf1cce2166ce0",
+      "prompt_ids_sha256": "acbcbc95e418f6dc0055b933c57690186266e3c444e721b17f7982f00cc1f429"
+    },
+    "cold-16k-r2": {
+      "prompt_tokens": 16085,
+      "request_sha256": "b4bb1d68796c7b3cfc29baf9630ef69bcba7fdf568b2ace12584ca03a5192142",
+      "prompt_ids_sha256": "974bacf9343556d6070e5d63b92e264230963fd08dcc37686cd95912999036dc"
+    },
+    "cold-32k-r2": {
+      "prompt_tokens": 32085,
+      "request_sha256": "5c9cbac2d9c28ab73a06df2c8cc535cc14b828cf7b42fd81e3f8a99f9f3370b5",
+      "prompt_ids_sha256": "1177d53f25d65239c45a94a43259056ac1c72e49c74cf8ec7d226bd9bd44d385"
+    },
+    "cold-66k-r2": {
+      "prompt_tokens": 66084,
+      "request_sha256": "b09302d953259b6932d6911284b7278dde0cabc3003b90c766d475c0b6ea083d",
+      "prompt_ids_sha256": "27ce3066ae432481a2f454b9f2b1c901129e813703fce080d2a7cc76e03c278d"
+    }
+  },
+  "decode_batches": [
+    {
+      "kind": "prose",
+      "concurrency": 1,
+      "repetition": 1,
+      "lanes": [
+        {
+          "lane": 1,
+          "start": 318984.076782358,
+          "first": 318984.232349335,
+          "last": 319009.247803326,
+          "done": 319009.248703064,
+          "usage": {
+            "prompt_tokens": 93,
+            "completion_tokens": 2048,
+            "total_tokens": 2141,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish": "length",
+          "content_sha256": "1666d1bdbf54a731bce5d7e4a4951b186e61691e5fa35b3b34bbc53a8537efc6",
+          "request_sha256": "f3efec8b26ffde06ffed68f15541979cada8750e1b771b9f274574389fadf20d",
+          "ttft_s": 0.1555669769877568,
+          "stream_decode_s": 25.01545399101451,
+          "stream_decode_tok_s": 81.8294163573956,
+          "trailing_completion_s": 0.0008997379918582737,
+          "request_total_s": 25.171920705994125,
+          "server_record": {
+            "request_number": 29,
+            "raw": "glm53: done req-29 prompt=93 cached=0 tokens=2048 finish=length tok/s=82.0 ttft=0.15s prefill=0.15s decode=24.97s rounds=939 accepted=1108/1838 round_ms=26.6 gap_ms=5.14 graphs=0 eager=2817 sampled=false sid=28",
+            "finish": "length",
+            "prompt": 93,
+            "cached": 0,
+            "tokens": 2048,
+            "graphs": 0,
+            "eager": 2817,
+            "ttft": 0.15,
+            "prefill": 0.15,
+            "decode": 24.97,
+            "server_decode_tok_s": 82.0,
+            "accepted": 1108,
+            "drafted": 1838
+          },
+          "server_record_matching": "unique_token_counts",
+          "event_count": 940
+        }
+      ],
+      "server_records": [
+        {
+          "request_number": 29,
+          "raw": "glm53: done req-29 prompt=93 cached=0 tokens=2048 finish=length tok/s=82.0 ttft=0.15s prefill=0.15s decode=24.97s rounds=939 accepted=1108/1838 round_ms=26.6 gap_ms=5.14 graphs=0 eager=2817 sampled=false sid=28",
+          "finish": "length",
+          "prompt": 93,
+          "cached": 0,
+          "tokens": 2048,
+          "graphs": 0,
+          "eager": 2817,
+          "ttft": 0.15,
+          "prefill": 0.15,
+          "decode": 24.97,
+          "server_decode_tok_s": 82.0,
+          "accepted": 1108,
+          "drafted": 1838
+        }
+      ],
+      "raw_logs": "[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\ninfo: glm53 LMCache: stored a complete prefix of 93 tokens in slot 1 (0.00 GiB per rank)\ninfo: glm53: done req-29 prompt=93 cached=0 tokens=2048 finish=length tok/s=82.0 ttft=0.15s prefill=0.15s decode=24.97s rounds=939 accepted=1108/1838 round_ms=26.6 gap_ms=5.14 graphs=0 eager=2817 sampled=false sid=28\n[tensorfold] done chatcmpl-66b41c144caf3143350572f20644206c prompt=93 cached=0 thinking=False effort=none tokens=2048 sha=f569a43df54c finish=length rounds=939 accepted=1108/1838\n",
+      "total_visible_tokens": 2048,
+      "stream_decode_span_s": 25.01545399101451,
+      "aggregate_stream_decode_tok_s": 81.8693916462854,
+      "server_decode_tok_s": [
+        82.0
+      ],
+      "end_to_end_s": 25.171920705994125,
+      "aggregate_end_to_end_tok_s": 81.36049783091502,
+      "full_overlap_s": 25.01545399101451,
+      "observed_running_max": 1,
+      "metric_samples": 126,
+      "full_concurrency_samples": 125
+    },
+    {
+      "kind": "prose",
+      "concurrency": 4,
+      "repetition": 1,
+      "lanes": [
+        {
+          "lane": 1,
+          "start": 319009.298275714,
+          "first": 319009.303146271,
+          "last": 319063.230659827,
+          "done": 319063.23158445,
+          "usage": {
+            "prompt_tokens": 93,
+            "completion_tokens": 2048,
+            "total_tokens": 2141,
+            "prompt_tokens_details": {
+              "cached_tokens": 93
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish": "length",
+          "content_sha256": "1666d1bdbf54a731bce5d7e4a4951b186e61691e5fa35b3b34bbc53a8537efc6",
+          "request_sha256": "f3efec8b26ffde06ffed68f15541979cada8750e1b771b9f274574389fadf20d",
+          "ttft_s": 0.004870556993409991,
+          "stream_decode_s": 53.927513556031045,
+          "stream_decode_tok_s": 37.95836049205483,
+          "trailing_completion_s": 0.0009246229892596602,
+          "request_total_s": 53.933308736013714,
+          "server_record": null,
+          "server_record_matching": "batch_only_ambiguous",
+          "event_count": 1011
+        },
+        {
+          "lane": 2,
+          "start": 319009.298787496,
+          "first": 319009.656069986,
+          "last": 319068.355282937,
+          "done": 319068.356148033,
+          "usage": {
+            "prompt_tokens": 93,
+            "completion_tokens": 2048,
+            "total_tokens": 2141,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish": "length",
+          "content_sha256": "3b80272fa2cc25af3177bf6f26d24f771749218b4d3225981bf9eb8a3da04f1c",
+          "request_sha256": "378a6f3009d6b62051ce54eb560cec1df4acc16fb1cb6936ad95636b89ff35cf",
+          "ttft_s": 0.35728249000385404,
+          "stream_decode_s": 58.699212951003574,
+          "stream_decode_tok_s": 34.87269925933484,
+          "trailing_completion_s": 0.0008650959935039282,
+          "request_total_s": 59.05736053700093,
+          "server_record": null,
+          "server_record_matching": "batch_only_ambiguous",
+          "event_count": 1140
+        },
+        {
+          "lane": 3,
+          "start": 319009.298500431,
+          "first": 319009.477725911,
+          "last": 319054.636459371,
+          "done": 319054.637218988,
+          "usage": {
+            "prompt_tokens": 92,
+            "completion_tokens": 2048,
+            "total_tokens": 2140,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish": "length",
+          "content_sha256": "fcb361531ecc9acc486250d7fdc6de4ea5e0f54dce8710895c5f3bb51a531440",
+          "request_sha256": "54096aa37e760e12e0f0b8d2122e38106ad55476ef027cec1a6f52946643d0e0",
+          "ttft_s": 0.17922548000933602,
+          "stream_decode_s": 45.15873346000444,
+          "stream_decode_tok_s": 45.32899492880947,
+          "trailing_completion_s": 0.0007596169598400593,
+          "request_total_s": 45.33871855697362,
+          "server_record": null,
+          "server_record_matching": "batch_only_ambiguous",
+          "event_count": 855
+        },
+        {
+          "lane": 4,
+          "start": 319009.298000468,
+          "first": 319009.848718106,
+          "last": 319069.61865282,
+          "done": 319069.619543102,
+          "usage": {
+            "prompt_tokens": 92,
+            "completion_tokens": 2048,
+            "total_tokens": 2140,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish": "length",
+          "content_sha256": "d8d6486678710164ba9c71de01bc146a437e7fd66c5222ea9371a83d80aaf7ae",
+          "request_sha256": "3ee1ecdd66fedc9619db99d7771c47aa4b08d316d4817088a9facfa0a55cd758",
+          "ttft_s": 0.5507176379906014,
+          "stream_decode_s": 59.76993471401511,
+          "stream_decode_tok_s": 34.24798788545457,
+          "trailing_completion_s": 0.0008902819827198982,
+          "request_total_s": 60.32154263398843,
+          "server_record": null,
+          "server_record_matching": "batch_only_ambiguous",
+          "event_count": 1182
+        }
+      ],
+      "server_records": [
+        {
+          "request_number": 31,
+          "raw": "glm53: done req-31 prompt=92 cached=0 tokens=2048 finish=length tok/s=45.4 ttft=0.18s prefill=0.15s decode=45.11s rounds=854 accepted=1193/1630 round_ms=52.5 gap_ms=0.55 graphs=0 eager=2562 sampled=false sid=30",
+          "finish": "length",
+          "prompt": 92,
+          "cached": 0,
+          "tokens": 2048,
+          "graphs": 0,
+          "eager": 2562,
+          "ttft": 0.18,
+          "prefill": 0.15,
+          "decode": 45.11,
+          "server_decode_tok_s": 45.4,
+          "accepted": 1193,
+          "drafted": 1630
+        },
+        {
+          "request_number": 30,
+          "raw": "glm53: done req-30 prompt=93 cached=93 tokens=2048 finish=length tok/s=38.0 ttft=0.00s prefill=0.00s decode=53.93s rounds=1010 accepted=1037/1609 round_ms=52.9 gap_ms=0.61 graphs=0 eager=3030 sampled=false sid=29",
+          "finish": "length",
+          "prompt": 93,
+          "cached": 93,
+          "tokens": 2048,
+          "graphs": 0,
+          "eager": 3030,
+          "ttft": 0.0,
+          "prefill": 0.0,
+          "decode": 53.93,
+          "server_decode_tok_s": 38.0,
+          "accepted": 1037,
+          "drafted": 1609
+        },
+        {
+          "request_number": 32,
+          "raw": "glm53: done req-32 prompt=93 cached=0 tokens=2048 finish=length tok/s=34.9 ttft=0.36s prefill=0.15s decode=58.65s rounds=1139 accepted=908/1487 round_ms=51.3 gap_ms=0.33 graphs=0 eager=3417 sampled=false sid=31",
+          "finish": "length",
+          "prompt": 93,
+          "cached": 0,
+          "tokens": 2048,
+          "graphs": 0,
+          "eager": 3417,
+          "ttft": 0.36,
+          "prefill": 0.15,
+          "decode": 58.65,
+          "server_decode_tok_s": 34.9,
+          "accepted": 908,
+          "drafted": 1487
+        },
+        {
+          "request_number": 33,
+          "raw": "glm53: done req-33 prompt=92 cached=0 tokens=2048 finish=length tok/s=34.3 ttft=0.55s prefill=0.15s decode=59.73s rounds=1181 accepted=866/1498 round_ms=50.5 gap_ms=0.23 graphs=0 eager=3542 sampled=false sid=32",
+          "finish": "length",
+          "prompt": 92,
+          "cached": 0,
+          "tokens": 2048,
+          "graphs": 0,
+          "eager": 3542,
+          "ttft": 0.55,
+          "prefill": 0.15,
+          "decode": 59.73,
+          "server_decode_tok_s": 34.3,
+          "accepted": 866,
+          "drafted": 1498
+        }
+      ],
+      "raw_logs": "[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\ninfo: glm53 LMCache: stored a complete prefix of 92 tokens in slot 0 (0.00 GiB per rank)\ninfo: glm53: done req-31 prompt=92 cached=0 tokens=2048 finish=length tok/s=45.4 ttft=0.18s prefill=0.15s decode=45.11s rounds=854 accepted=1193/1630 round_ms=52.5 gap_ms=0.55 graphs=0 eager=2562 sampled=false sid=30\n[tensorfold] done chatcmpl-51b2cc72e91ae091037160e71e45c32f prompt=92 cached=0 thinking=False effort=none tokens=2048 sha=65596be62561 finish=length rounds=854 accepted=1193/1630\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\ninfo: glm53: done req-30 prompt=93 cached=93 tokens=2048 finish=length tok/s=38.0 ttft=0.00s prefill=0.00s decode=53.93s rounds=1010 accepted=1037/1609 round_ms=52.9 gap_ms=0.61 graphs=0 eager=3030 sampled=false sid=29\n[tensorfold] done chatcmpl-7877cab374972270e391e5f5a5621d41 prompt=93 cached=93 thinking=False effort=none tokens=2048 sha=f569a43df54c finish=length rounds=1010 accepted=1037/1609\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\ninfo: glm53 LMCache: stored a complete prefix of 93 tokens in slot 2 (0.00 GiB per rank)\ninfo: glm53: done req-32 prompt=93 cached=0 tokens=2048 finish=length tok/s=34.9 ttft=0.36s prefill=0.15s decode=58.65s rounds=1139 accepted=908/1487 round_ms=51.3 gap_ms=0.33 graphs=0 eager=3417 sampled=false sid=31\n[tensorfold] done chatcmpl-f6ae604f7e5c45014dc8b92197e6330d prompt=93 cached=0 thinking=False effort=none tokens=2048 sha=c8f9cd5fe29b finish=length rounds=1139 accepted=908/1487\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\ninfo: glm53 LMCache: stored a complete prefix of 92 tokens in slot 3 (0.00 GiB per rank)\ninfo: glm53: done req-33 prompt=92 cached=0 tokens=2048 finish=length tok/s=34.3 ttft=0.55s prefill=0.15s decode=59.73s rounds=1181 accepted=866/1498 round_ms=50.5 gap_ms=0.23 graphs=0 eager=3542 sampled=false sid=32\n[tensorfold] done chatcmpl-46d0b4743dd9e9a8e7a649e0b82ce23b prompt=92 cached=0 thinking=False effort=none tokens=2048 sha=131081ce0011 finish=length rounds=1181 accepted=866/1498\n",
+      "total_visible_tokens": 8192,
+      "stream_decode_span_s": 60.315506549028214,
+      "aggregate_stream_decode_tok_s": 135.8191362173346,
+      "server_decode_tok_s": [
+        45.4,
+        38.0,
+        34.9,
+        34.3
+      ],
+      "end_to_end_s": 60.32154263398843,
+      "aggregate_end_to_end_tok_s": 135.80554545341124,
+      "full_overlap_s": 44.78774126502685,
+      "observed_running_max": 4,
+      "metric_samples": 300,
+      "full_concurrency_samples": 224
+    },
+    {
+      "kind": "code",
+      "concurrency": 1,
+      "repetition": 1,
+      "lanes": [
+        {
+          "lane": 1,
+          "start": 319069.672071053,
+          "first": 319069.858451874,
+          "last": 319087.339038862,
+          "done": 319087.339893525,
+          "usage": {
+            "prompt_tokens": 117,
+            "completion_tokens": 2048,
+            "total_tokens": 2165,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish": "length",
+          "content_sha256": "f8c2f77ff9c56991a64a1cea1ed476256cace43ce6ab95ab405c7af525b3608d",
+          "request_sha256": "f246b742bb906dd4c02360252f0062a2e5d6c49e5d9cbc7d8f8c0d37c181cc4f",
+          "ttft_s": 0.1863808209891431,
+          "stream_decode_s": 17.480586987978313,
+          "stream_decode_tok_s": 117.10133083103877,
+          "trailing_completion_s": 0.000854663026984781,
+          "request_total_s": 17.66782247199444,
+          "server_record": {
+            "request_number": 34,
+            "raw": "glm53: done req-34 prompt=117 cached=0 tokens=2048 finish=length tok/s=117.5 ttft=0.18s prefill=0.18s decode=17.42s rounds=484 accepted=1563/2039 round_ms=36.0 gap_ms=0.60 graphs=0 eager=1452 sampled=false sid=33",
+            "finish": "length",
+            "prompt": 117,
+            "cached": 0,
+            "tokens": 2048,
+            "graphs": 0,
+            "eager": 1452,
+            "ttft": 0.18,
+            "prefill": 0.18,
+            "decode": 17.42,
+            "server_decode_tok_s": 117.5,
+            "accepted": 1563,
+            "drafted": 2039
+          },
+          "server_record_matching": "unique_token_counts",
+          "event_count": 485
+        }
+      ],
+      "server_records": [
+        {
+          "request_number": 34,
+          "raw": "glm53: done req-34 prompt=117 cached=0 tokens=2048 finish=length tok/s=117.5 ttft=0.18s prefill=0.18s decode=17.42s rounds=484 accepted=1563/2039 round_ms=36.0 gap_ms=0.60 graphs=0 eager=1452 sampled=false sid=33",
+          "finish": "length",
+          "prompt": 117,
+          "cached": 0,
+          "tokens": 2048,
+          "graphs": 0,
+          "eager": 1452,
+          "ttft": 0.18,
+          "prefill": 0.18,
+          "decode": 17.42,
+          "server_decode_tok_s": 117.5,
+          "accepted": 1563,
+          "drafted": 2039
+        }
+      ],
+      "raw_logs": "[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\ninfo: glm53 LMCache: stored a complete prefix of 117 tokens in slot 1 (0.00 GiB per rank)\ninfo: glm53: done req-34 prompt=117 cached=0 tokens=2048 finish=length tok/s=117.5 ttft=0.18s prefill=0.18s decode=17.42s rounds=484 accepted=1563/2039 round_ms=36.0 gap_ms=0.60 graphs=0 eager=1452 sampled=false sid=33\n[tensorfold] done chatcmpl-5af89ea31d9cfb9a84cd2d2ef8b6ab8b prompt=117 cached=0 thinking=False effort=none tokens=2048 sha=396639f04b49 finish=length rounds=484 accepted=1563/2039\n",
+      "total_visible_tokens": 2048,
+      "stream_decode_span_s": 17.480586987978313,
+      "aggregate_stream_decode_tok_s": 117.15853714800556,
+      "server_decode_tok_s": [
+        117.5
+      ],
+      "end_to_end_s": 17.66782247199444,
+      "aggregate_end_to_end_tok_s": 115.91694467421318,
+      "full_overlap_s": 17.480586987978313,
+      "observed_running_max": 1,
+      "metric_samples": 88,
+      "full_concurrency_samples": 87
+    },
+    {
+      "kind": "code",
+      "concurrency": 4,
+      "repetition": 1,
+      "lanes": [
+        {
+          "lane": 1,
+          "start": 319087.392131863,
+          "first": 319087.396583834,
+          "last": 319126.621445857,
+          "done": 319126.622335263,
+          "usage": {
+            "prompt_tokens": 117,
+            "completion_tokens": 2048,
+            "total_tokens": 2165,
+            "prompt_tokens_details": {
+              "cached_tokens": 117
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish": "length",
+          "content_sha256": "f8c2f77ff9c56991a64a1cea1ed476256cace43ce6ab95ab405c7af525b3608d",
+          "request_sha256": "f246b742bb906dd4c02360252f0062a2e5d6c49e5d9cbc7d8f8c0d37c181cc4f",
+          "ttft_s": 0.004451971035450697,
+          "stream_decode_s": 39.22486202296568,
+          "stream_decode_tok_s": 52.1862893692655,
+          "trailing_completion_s": 0.0008894060156308115,
+          "request_total_s": 39.23020340001676,
+          "server_record": {
+            "request_number": 35,
+            "raw": "glm53: done req-35 prompt=117 cached=117 tokens=2048 finish=length tok/s=52.2 ttft=0.00s prefill=0.00s decode=39.22s rounds=555 accepted=1492/1746 round_ms=69.7 gap_ms=1.16 graphs=0 eager=1665 sampled=false sid=34",
+            "finish": "length",
+            "prompt": 117,
+            "cached": 117,
+            "tokens": 2048,
+            "graphs": 0,
+            "eager": 1665,
+            "ttft": 0.0,
+            "prefill": 0.0,
+            "decode": 39.22,
+            "server_decode_tok_s": 52.2,
+            "accepted": 1492,
+            "drafted": 1746
+          },
+          "server_record_matching": "unique_token_counts",
+          "event_count": 556
+        },
+        {
+          "lane": 2,
+          "start": 319087.391716964,
+          "first": 319087.590147002,
+          "last": 319131.587349113,
+          "done": 319131.588502411,
+          "usage": {
+            "prompt_tokens": 112,
+            "completion_tokens": 2048,
+            "total_tokens": 2160,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish": "length",
+          "content_sha256": "e9c28e87a8d5fbe3216f7dc8f5a88df3e7f5daf00a70c852cf527068034459c1",
+          "request_sha256": "5da8a0b528e667b62d279862ad0b905c086f1ead41c17c19b091340ea828f883",
+          "ttft_s": 0.19843003799906,
+          "stream_decode_s": 43.99720211100066,
+          "stream_decode_tok_s": 46.5256857660089,
+          "trailing_completion_s": 0.0011532979551702738,
+          "request_total_s": 44.19678544695489,
+          "server_record": {
+            "request_number": 36,
+            "raw": "glm53: done req-36 prompt=112 cached=0 tokens=2048 finish=length tok/s=46.6 ttft=0.20s prefill=0.17s decode=43.94s rounds=614 accepted=1433/1745 round_ms=71.0 gap_ms=0.87 graphs=0 eager=1842 sampled=false sid=35",
+            "finish": "length",
+            "prompt": 112,
+            "cached": 0,
+            "tokens": 2048,
+            "graphs": 0,
+            "eager": 1842,
+            "ttft": 0.2,
+            "prefill": 0.17,
+            "decode": 43.94,
+            "server_decode_tok_s": 46.6,
+            "accepted": 1433,
+            "drafted": 1745
+          },
+          "server_record_matching": "unique_token_counts",
+          "event_count": 615
+        },
+        {
+          "lane": 3,
+          "start": 319087.391840041,
+          "first": 319088.049682474,
+          "last": 319132.360134546,
+          "done": 319132.361022062,
+          "usage": {
+            "prompt_tokens": 115,
+            "completion_tokens": 2048,
+            "total_tokens": 2163,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish": "length",
+          "content_sha256": "84d35be06945bfe02eb7a3862a983ab85aed6c39bc877abb515c406fe583c250",
+          "request_sha256": "79e678f2dc12909482a88468a62f331c70a38c35bc77ed33e5f43fa37c2ead87",
+          "ttft_s": 0.6578424330218695,
+          "stream_decode_s": 44.31045207200805,
+          "stream_decode_tok_s": 46.19677534937943,
+          "trailing_completion_s": 0.0008875160128809512,
+          "request_total_s": 44.9691820210428,
+          "server_record": {
+            "request_number": 38,
+            "raw": "glm53: done req-38 prompt=115 cached=0 tokens=2048 finish=length tok/s=46.3 ttft=0.66s prefill=0.17s decode=44.26s rounds=623 accepted=1424/1726 round_ms=70.9 gap_ms=0.40 graphs=0 eager=1869 sampled=false sid=37",
+            "finish": "length",
+            "prompt": 115,
+            "cached": 0,
+            "tokens": 2048,
+            "graphs": 0,
+            "eager": 1869,
+            "ttft": 0.66,
+            "prefill": 0.17,
+            "decode": 44.26,
+            "server_decode_tok_s": 46.3,
+            "accepted": 1424,
+            "drafted": 1726
+          },
+          "server_record_matching": "unique_token_counts",
+          "event_count": 624
+        },
+        {
+          "lane": 4,
+          "start": 319087.391449793,
+          "first": 319087.817643261,
+          "last": 319133.266043855,
+          "done": 319133.266911233,
+          "usage": {
+            "prompt_tokens": 113,
+            "completion_tokens": 2048,
+            "total_tokens": 2161,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish": "length",
+          "content_sha256": "35ffef82a60c8bc888d0a351cceae5c4b35055860a0421df9b83470bcf4dcd69",
+          "request_sha256": "f24c93f4ad64ff710aeded010fc4342918c8ad8910dc4a300a8e80d4d9bd1c64",
+          "ttft_s": 0.4261934679816477,
+          "stream_decode_s": 45.44840059400303,
+          "stream_decode_tok_s": 45.04008883142312,
+          "trailing_completion_s": 0.0008673780248500407,
+          "request_total_s": 45.87546144000953,
+          "server_record": {
+            "request_number": 37,
+            "raw": "glm53: done req-37 prompt=113 cached=0 tokens=2048 finish=length tok/s=45.1 ttft=0.42s prefill=0.17s decode=45.40s rounds=644 accepted=1403/1751 round_ms=70.0 gap_ms=0.74 graphs=0 eager=1932 sampled=false sid=36",
+            "finish": "length",
+            "prompt": 113,
+            "cached": 0,
+            "tokens": 2048,
+            "graphs": 0,
+            "eager": 1932,
+            "ttft": 0.42,
+            "prefill": 0.17,
+            "decode": 45.4,
+            "server_decode_tok_s": 45.1,
+            "accepted": 1403,
+            "drafted": 1751
+          },
+          "server_record_matching": "unique_token_counts",
+          "event_count": 645
+        }
+      ],
+      "server_records": [
+        {
+          "request_number": 35,
+          "raw": "glm53: done req-35 prompt=117 cached=117 tokens=2048 finish=length tok/s=52.2 ttft=0.00s prefill=0.00s decode=39.22s rounds=555 accepted=1492/1746 round_ms=69.7 gap_ms=1.16 graphs=0 eager=1665 sampled=false sid=34",
+          "finish": "length",
+          "prompt": 117,
+          "cached": 117,
+          "tokens": 2048,
+          "graphs": 0,
+          "eager": 1665,
+          "ttft": 0.0,
+          "prefill": 0.0,
+          "decode": 39.22,
+          "server_decode_tok_s": 52.2,
+          "accepted": 1492,
+          "drafted": 1746
+        },
+        {
+          "request_number": 36,
+          "raw": "glm53: done req-36 prompt=112 cached=0 tokens=2048 finish=length tok/s=46.6 ttft=0.20s prefill=0.17s decode=43.94s rounds=614 accepted=1433/1745 round_ms=71.0 gap_ms=0.87 graphs=0 eager=1842 sampled=false sid=35",
+          "finish": "length",
+          "prompt": 112,
+          "cached": 0,
+          "tokens": 2048,
+          "graphs": 0,
+          "eager": 1842,
+          "ttft": 0.2,
+          "prefill": 0.17,
+          "decode": 43.94,
+          "server_decode_tok_s": 46.6,
+          "accepted": 1433,
+          "drafted": 1745
+        },
+        {
+          "request_number": 38,
+          "raw": "glm53: done req-38 prompt=115 cached=0 tokens=2048 finish=length tok/s=46.3 ttft=0.66s prefill=0.17s decode=44.26s rounds=623 accepted=1424/1726 round_ms=70.9 gap_ms=0.40 graphs=0 eager=1869 sampled=false sid=37",
+          "finish": "length",
+          "prompt": 115,
+          "cached": 0,
+          "tokens": 2048,
+          "graphs": 0,
+          "eager": 1869,
+          "ttft": 0.66,
+          "prefill": 0.17,
+          "decode": 44.26,
+          "server_decode_tok_s": 46.3,
+          "accepted": 1424,
+          "drafted": 1726
+        },
+        {
+          "request_number": 37,
+          "raw": "glm53: done req-37 prompt=113 cached=0 tokens=2048 finish=length tok/s=45.1 ttft=0.42s prefill=0.17s decode=45.40s rounds=644 accepted=1403/1751 round_ms=70.0 gap_ms=0.74 graphs=0 eager=1932 sampled=false sid=36",
+          "finish": "length",
+          "prompt": 113,
+          "cached": 0,
+          "tokens": 2048,
+          "graphs": 0,
+          "eager": 1932,
+          "ttft": 0.42,
+          "prefill": 0.17,
+          "decode": 45.4,
+          "server_decode_tok_s": 45.1,
+          "accepted": 1403,
+          "drafted": 1751
+        }
+      ],
+      "raw_logs": "[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\ninfo: glm53: done req-35 prompt=117 cached=117 tokens=2048 finish=length tok/s=52.2 ttft=0.00s prefill=0.00s decode=39.22s rounds=555 accepted=1492/1746 round_ms=69.7 gap_ms=1.16 graphs=0 eager=1665 sampled=false sid=34\n[tensorfold] done chatcmpl-d7906b9c765f849e67453770a317969a prompt=117 cached=117 thinking=False effort=none tokens=2048 sha=396639f04b49 finish=length rounds=555 accepted=1492/1746\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\ninfo: glm53 LMCache: stored a complete prefix of 112 tokens in slot 0 (0.00 GiB per rank)\ninfo: glm53: done req-36 prompt=112 cached=0 tokens=2048 finish=length tok/s=46.6 ttft=0.20s prefill=0.17s decode=43.94s rounds=614 accepted=1433/1745 round_ms=71.0 gap_ms=0.87 graphs=0 eager=1842 sampled=false sid=35\n[tensorfold] done chatcmpl-314334cef93682de4caabd60db7443c9 prompt=112 cached=0 thinking=False effort=none tokens=2048 sha=281b1fc0fc2d finish=length rounds=614 accepted=1433/1745\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\ninfo: glm53 LMCache: stored a complete prefix of 115 tokens in slot 3 (0.00 GiB per rank)\ninfo: glm53: done req-38 prompt=115 cached=0 tokens=2048 finish=length tok/s=46.3 ttft=0.66s prefill=0.17s decode=44.26s rounds=623 accepted=1424/1726 round_ms=70.9 gap_ms=0.40 graphs=0 eager=1869 sampled=false sid=37\n[tensorfold] done chatcmpl-01d2c0d61105cbfeb00bbdc6613bd4e0 prompt=115 cached=0 thinking=False effort=none tokens=2048 sha=bb8e6656c6be finish=length rounds=623 accepted=1424/1726\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\ninfo: glm53 LMCache: stored a complete prefix of 113 tokens in slot 2 (0.00 GiB per rank)\ninfo: glm53: done req-37 prompt=113 cached=0 tokens=2048 finish=length tok/s=45.1 ttft=0.42s prefill=0.17s decode=45.40s rounds=644 accepted=1403/1751 round_ms=70.0 gap_ms=0.74 graphs=0 eager=1932 sampled=false sid=36\n[tensorfold] done chatcmpl-4007d87319b3030d5f88f78f69577b38 prompt=113 cached=0 thinking=False effort=none tokens=2048 sha=65ef489669f0 finish=length rounds=644 accepted=1403/1751\n",
+      "total_visible_tokens": 8192,
+      "stream_decode_span_s": 45.86946002097102,
+      "aggregate_stream_decode_tok_s": 178.5937745125996,
+      "server_decode_tok_s": [
+        52.2,
+        46.6,
+        46.3,
+        45.1
+      ],
+      "end_to_end_s": 45.87546144000953,
+      "aggregate_end_to_end_tok_s": 178.57041090938176,
+      "full_overlap_s": 38.571763382991776,
+      "observed_running_max": 4,
+      "metric_samples": 229,
+      "full_concurrency_samples": 193
+    },
+    {
+      "kind": "prose",
+      "concurrency": 1,
+      "repetition": 2,
+      "lanes": [
+        {
+          "lane": 1,
+          "start": 319133.319716826,
+          "first": 319133.337976526,
+          "last": 319158.67893361,
+          "done": 319158.679814408,
+          "usage": {
+            "prompt_tokens": 93,
+            "completion_tokens": 2048,
+            "total_tokens": 2141,
+            "prompt_tokens_details": {
+              "cached_tokens": 93
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish": "length",
+          "content_sha256": "1666d1bdbf54a731bce5d7e4a4951b186e61691e5fa35b3b34bbc53a8537efc6",
+          "request_sha256": "f3efec8b26ffde06ffed68f15541979cada8750e1b771b9f274574389fadf20d",
+          "ttft_s": 0.018259699980262667,
+          "stream_decode_s": 25.34095708397217,
+          "stream_decode_tok_s": 80.778322350528,
+          "trailing_completion_s": 0.0008807980339042842,
+          "request_total_s": 25.360097581986338,
+          "server_record": {
+            "request_number": 39,
+            "raw": "glm53: done req-39 prompt=93 cached=93 tokens=2048 finish=length tok/s=80.8 ttft=0.02s prefill=0.00s decode=25.34s rounds=939 accepted=1108/1838 round_ms=27.0 gap_ms=0.15 graphs=0 eager=2817 sampled=false sid=38",
+            "finish": "length",
+            "prompt": 93,
+            "cached": 93,
+            "tokens": 2048,
+            "graphs": 0,
+            "eager": 2817,
+            "ttft": 0.02,
+            "prefill": 0.0,
+            "decode": 25.34,
+            "server_decode_tok_s": 80.8,
+            "accepted": 1108,
+            "drafted": 1838
+          },
+          "server_record_matching": "unique_token_counts",
+          "event_count": 940
+        }
+      ],
+      "server_records": [
+        {
+          "request_number": 39,
+          "raw": "glm53: done req-39 prompt=93 cached=93 tokens=2048 finish=length tok/s=80.8 ttft=0.02s prefill=0.00s decode=25.34s rounds=939 accepted=1108/1838 round_ms=27.0 gap_ms=0.15 graphs=0 eager=2817 sampled=false sid=38",
+          "finish": "length",
+          "prompt": 93,
+          "cached": 93,
+          "tokens": 2048,
+          "graphs": 0,
+          "eager": 2817,
+          "ttft": 0.02,
+          "prefill": 0.0,
+          "decode": 25.34,
+          "server_decode_tok_s": 80.8,
+          "accepted": 1108,
+          "drafted": 1838
+        }
+      ],
+      "raw_logs": "[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\ninfo: glm53 LMCache restored 93 prefix tokens on all ranks into slot 1\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\ninfo: glm53: done req-39 prompt=93 cached=93 tokens=2048 finish=length tok/s=80.8 ttft=0.02s prefill=0.00s decode=25.34s rounds=939 accepted=1108/1838 round_ms=27.0 gap_ms=0.15 graphs=0 eager=2817 sampled=false sid=38\n[tensorfold] done chatcmpl-cce7c153818e353e3d0facebe7c30b5f prompt=93 cached=93 thinking=False effort=none tokens=2048 sha=f569a43df54c finish=length rounds=939 accepted=1108/1838\n",
+      "total_visible_tokens": 2048,
+      "stream_decode_span_s": 25.34095708397217,
+      "aggregate_stream_decode_tok_s": 80.81778415919948,
+      "server_decode_tok_s": [
+        80.8
+      ],
+      "end_to_end_s": 25.360097581986338,
+      "aggregate_end_to_end_tok_s": 80.75678705016993,
+      "full_overlap_s": 25.34095708397217,
+      "observed_running_max": 1,
+      "metric_samples": 127,
+      "full_concurrency_samples": 126
+    },
+    {
+      "kind": "prose",
+      "concurrency": 4,
+      "repetition": 2,
+      "lanes": [
+        {
+          "lane": 1,
+          "start": 319158.736847424,
+          "first": 319158.873313214,
+          "last": 319212.051956497,
+          "done": 319212.052823871,
+          "usage": {
+            "prompt_tokens": 93,
+            "completion_tokens": 2048,
+            "total_tokens": 2141,
+            "prompt_tokens_details": {
+              "cached_tokens": 93
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish": "length",
+          "content_sha256": "1666d1bdbf54a731bce5d7e4a4951b186e61691e5fa35b3b34bbc53a8537efc6",
+          "request_sha256": "f3efec8b26ffde06ffed68f15541979cada8750e1b771b9f274574389fadf20d",
+          "ttft_s": 0.13646578998304904,
+          "stream_decode_s": 53.17864328302676,
+          "stream_decode_tok_s": 38.49289627615132,
+          "trailing_completion_s": 0.0008673740085214376,
+          "request_total_s": 53.31597644701833,
+          "server_record": null,
+          "server_record_matching": "batch_only_ambiguous",
+          "event_count": 1011
+        },
+        {
+          "lane": 2,
+          "start": 319158.737640474,
+          "first": 319158.752444804,
+          "last": 319216.919569524,
+          "done": 319216.920506888,
+          "usage": {
+            "prompt_tokens": 93,
+            "completion_tokens": 2048,
+            "total_tokens": 2141,
+            "prompt_tokens_details": {
+              "cached_tokens": 93
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish": "length",
+          "content_sha256": "3b80272fa2cc25af3177bf6f26d24f771749218b4d3225981bf9eb8a3da04f1c",
+          "request_sha256": "378a6f3009d6b62051ce54eb560cec1df4acc16fb1cb6936ad95636b89ff35cf",
+          "ttft_s": 0.01480433001415804,
+          "stream_decode_s": 58.167124719999265,
+          "stream_decode_tok_s": 35.19169994827322,
+          "trailing_completion_s": 0.0009373640059493482,
+          "request_total_s": 58.18286641401937,
+          "server_record": null,
+          "server_record_matching": "batch_only_ambiguous",
+          "event_count": 1140
+        },
+        {
+          "lane": 3,
+          "start": 319158.737125259,
+          "first": 319158.826614007,
+          "last": 319203.423377078,
+          "done": 319203.424188304,
+          "usage": {
+            "prompt_tokens": 92,
+            "completion_tokens": 2048,
+            "total_tokens": 2140,
+            "prompt_tokens_details": {
+              "cached_tokens": 92
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish": "length",
+          "content_sha256": "fcb361531ecc9acc486250d7fdc6de4ea5e0f54dce8710895c5f3bb51a531440",
+          "request_sha256": "54096aa37e760e12e0f0b8d2122e38106ad55476ef027cec1a6f52946643d0e0",
+          "ttft_s": 0.08948874799534678,
+          "stream_decode_s": 44.596763071021996,
+          "stream_decode_tok_s": 45.90019227942792,
+          "trailing_completion_s": 0.0008112259674817324,
+          "request_total_s": 44.687063044984825,
+          "server_record": null,
+          "server_record_matching": "batch_only_ambiguous",
+          "event_count": 855
+        },
+        {
+          "lane": 4,
+          "start": 319158.736564273,
+          "first": 319158.789267639,
+          "last": 319218.123645141,
+          "done": 319218.124547326,
+          "usage": {
+            "prompt_tokens": 92,
+            "completion_tokens": 2048,
+            "total_tokens": 2140,
+            "prompt_tokens_details": {
+              "cached_tokens": 92
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish": "length",
+          "content_sha256": "d8d6486678710164ba9c71de01bc146a437e7fd66c5222ea9371a83d80aaf7ae",
+          "request_sha256": "3ee1ecdd66fedc9619db99d7771c47aa4b08d316d4817088a9facfa0a55cd758",
+          "ttft_s": 0.05270336597459391,
+          "stream_decode_s": 59.33437750203302,
+          "stream_decode_tok_s": 34.499392867648474,
+          "trailing_completion_s": 0.000902184983715415,
+          "request_total_s": 59.38798305299133,
+          "server_record": null,
+          "server_record_matching": "batch_only_ambiguous",
+          "event_count": 1182
+        }
+      ],
+      "server_records": [
+        {
+          "request_number": 42,
+          "raw": "glm53: done req-42 prompt=92 cached=92 tokens=2048 finish=length tok/s=45.9 ttft=0.09s prefill=0.00s decode=44.60s rounds=854 accepted=1193/1630 round_ms=52.2 gap_ms=0.04 graphs=0 eager=2562 sampled=false sid=41",
+          "finish": "length",
+          "prompt": 92,
+          "cached": 92,
+          "tokens": 2048,
+          "graphs": 0,
+          "eager": 2562,
+          "ttft": 0.09,
+          "prefill": 0.0,
+          "decode": 44.6,
+          "server_decode_tok_s": 45.9,
+          "accepted": 1193,
+          "drafted": 1630
+        },
+        {
+          "request_number": 43,
+          "raw": "glm53: done req-43 prompt=93 cached=93 tokens=2048 finish=length tok/s=38.5 ttft=0.13s prefill=0.00s decode=53.18s rounds=1010 accepted=1037/1610 round_ms=52.6 gap_ms=0.03 graphs=0 eager=3030 sampled=false sid=42",
+          "finish": "length",
+          "prompt": 93,
+          "cached": 93,
+          "tokens": 2048,
+          "graphs": 0,
+          "eager": 3030,
+          "ttft": 0.13,
+          "prefill": 0.0,
+          "decode": 53.18,
+          "server_decode_tok_s": 38.5,
+          "accepted": 1037,
+          "drafted": 1610
+        },
+        {
+          "request_number": 40,
+          "raw": "glm53: done req-40 prompt=93 cached=93 tokens=2048 finish=length tok/s=35.2 ttft=0.01s prefill=0.00s decode=58.17s rounds=1139 accepted=908/1487 round_ms=51.0 gap_ms=0.11 graphs=0 eager=3417 sampled=false sid=39",
+          "finish": "length",
+          "prompt": 93,
+          "cached": 93,
+          "tokens": 2048,
+          "graphs": 0,
+          "eager": 3417,
+          "ttft": 0.01,
+          "prefill": 0.0,
+          "decode": 58.17,
+          "server_decode_tok_s": 35.2,
+          "accepted": 908,
+          "drafted": 1487
+        },
+        {
+          "request_number": 41,
+          "raw": "glm53: done req-41 prompt=92 cached=92 tokens=2048 finish=length tok/s=34.5 ttft=0.05s prefill=0.00s decode=59.33s rounds=1181 accepted=866/1497 round_ms=50.2 gap_ms=0.05 graphs=0 eager=3542 sampled=false sid=40",
+          "finish": "length",
+          "prompt": 92,
+          "cached": 92,
+          "tokens": 2048,
+          "graphs": 0,
+          "eager": 3542,
+          "ttft": 0.05,
+          "prefill": 0.0,
+          "decode": 59.33,
+          "server_decode_tok_s": 34.5,
+          "accepted": 866,
+          "drafted": 1497
+        }
+      ],
+      "raw_logs": "[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\ninfo: glm53 LMCache restored 93 prefix tokens on all ranks into slot 0\ninfo: glm53 LMCache restored 92 prefix tokens on all ranks into slot 1\ninfo: glm53 LMCache restored 92 prefix tokens on all ranks into slot 2\ninfo: glm53 LMCache restored 93 prefix tokens on all ranks into slot 3\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\ninfo: glm53: done req-42 prompt=92 cached=92 tokens=2048 finish=length tok/s=45.9 ttft=0.09s prefill=0.00s decode=44.60s rounds=854 accepted=1193/1630 round_ms=52.2 gap_ms=0.04 graphs=0 eager=2562 sampled=false sid=41\n[tensorfold] done chatcmpl-4f66f4de624229332faad7f7533693f9 prompt=92 cached=92 thinking=False effort=none tokens=2048 sha=65596be62561 finish=length rounds=854 accepted=1193/1630\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\ninfo: glm53: done req-43 prompt=93 cached=93 tokens=2048 finish=length tok/s=38.5 ttft=0.13s prefill=0.00s decode=53.18s rounds=1010 accepted=1037/1610 round_ms=52.6 gap_ms=0.03 graphs=0 eager=3030 sampled=false sid=42\n[tensorfold] done chatcmpl-9c325c95164c24f5c27c36cfa5e47e9a prompt=93 cached=93 thinking=False effort=none tokens=2048 sha=f569a43df54c finish=length rounds=1010 accepted=1037/1610\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\ninfo: glm53: done req-40 prompt=93 cached=93 tokens=2048 finish=length tok/s=35.2 ttft=0.01s prefill=0.00s decode=58.17s rounds=1139 accepted=908/1487 round_ms=51.0 gap_ms=0.11 graphs=0 eager=3417 sampled=false sid=39\n[tensorfold] done chatcmpl-a712e4507c22f51b545d316da31fcd66 prompt=93 cached=93 thinking=False effort=none tokens=2048 sha=c8f9cd5fe29b finish=length rounds=1139 accepted=908/1487\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\ninfo: glm53: done req-41 prompt=92 cached=92 tokens=2048 finish=length tok/s=34.5 ttft=0.05s prefill=0.00s decode=59.33s rounds=1181 accepted=866/1497 round_ms=50.2 gap_ms=0.05 graphs=0 eager=3542 sampled=false sid=40\n[tensorfold] done chatcmpl-b72750c7f3ef335af1bf6978cd7a0703 prompt=92 cached=92 thinking=False effort=none tokens=2048 sha=131081ce0011 finish=length rounds=1181 accepted=866/1497\n",
+      "total_visible_tokens": 8192,
+      "stream_decode_span_s": 59.37120033701649,
+      "aggregate_stream_decode_tok_s": 137.9793562114069,
+      "server_decode_tok_s": [
+        45.9,
+        38.5,
+        35.2,
+        34.5
+      ],
+      "end_to_end_s": 59.38798305299133,
+      "aggregate_end_to_end_tok_s": 137.94036400748544,
+      "full_overlap_s": 44.55006386403693,
+      "observed_running_max": 4,
+      "metric_samples": 296,
+      "full_concurrency_samples": 222
+    },
+    {
+      "kind": "code",
+      "concurrency": 1,
+      "repetition": 2,
+      "lanes": [
+        {
+          "lane": 1,
+          "start": 319218.184522458,
+          "first": 319218.204489078,
+          "last": 319235.542418517,
+          "done": 319235.543414719,
+          "usage": {
+            "prompt_tokens": 117,
+            "completion_tokens": 2048,
+            "total_tokens": 2165,
+            "prompt_tokens_details": {
+              "cached_tokens": 117
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish": "length",
+          "content_sha256": "f8c2f77ff9c56991a64a1cea1ed476256cace43ce6ab95ab405c7af525b3608d",
+          "request_sha256": "f246b742bb906dd4c02360252f0062a2e5d6c49e5d9cbc7d8f8c0d37c181cc4f",
+          "ttft_s": 0.01996662002056837,
+          "stream_decode_s": 17.337929438974243,
+          "stream_decode_tok_s": 118.06484777810388,
+          "trailing_completion_s": 0.0009962019976228476,
+          "request_total_s": 17.358892260992434,
+          "server_record": {
+            "request_number": 44,
+            "raw": "glm53: done req-44 prompt=117 cached=117 tokens=2048 finish=length tok/s=118.1 ttft=0.02s prefill=0.00s decode=17.34s rounds=484 accepted=1563/2039 round_ms=35.8 gap_ms=0.19 graphs=0 eager=1452 sampled=false sid=43",
+            "finish": "length",
+            "prompt": 117,
+            "cached": 117,
+            "tokens": 2048,
+            "graphs": 0,
+            "eager": 1452,
+            "ttft": 0.02,
+            "prefill": 0.0,
+            "decode": 17.34,
+            "server_decode_tok_s": 118.1,
+            "accepted": 1563,
+            "drafted": 2039
+          },
+          "server_record_matching": "unique_token_counts",
+          "event_count": 485
+        }
+      ],
+      "server_records": [
+        {
+          "request_number": 44,
+          "raw": "glm53: done req-44 prompt=117 cached=117 tokens=2048 finish=length tok/s=118.1 ttft=0.02s prefill=0.00s decode=17.34s rounds=484 accepted=1563/2039 round_ms=35.8 gap_ms=0.19 graphs=0 eager=1452 sampled=false sid=43",
+          "finish": "length",
+          "prompt": 117,
+          "cached": 117,
+          "tokens": 2048,
+          "graphs": 0,
+          "eager": 1452,
+          "ttft": 0.02,
+          "prefill": 0.0,
+          "decode": 17.34,
+          "server_decode_tok_s": 118.1,
+          "accepted": 1563,
+          "drafted": 2039
+        }
+      ],
+      "raw_logs": "[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\ninfo: glm53 LMCache restored 117 prefix tokens on all ranks into slot 0\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\ninfo: glm53: done req-44 prompt=117 cached=117 tokens=2048 finish=length tok/s=118.1 ttft=0.02s prefill=0.00s decode=17.34s rounds=484 accepted=1563/2039 round_ms=35.8 gap_ms=0.19 graphs=0 eager=1452 sampled=false sid=43\n[tensorfold] done chatcmpl-9318aa6b937af8c4805dfc0e1166d1d6 prompt=117 cached=117 thinking=False effort=none tokens=2048 sha=396639f04b49 finish=length rounds=484 accepted=1563/2039\n",
+      "total_visible_tokens": 2048,
+      "stream_decode_span_s": 17.337929438974243,
+      "aggregate_stream_decode_tok_s": 118.12252479216255,
+      "server_decode_tok_s": [
+        118.1
+      ],
+      "end_to_end_s": 17.358892260992434,
+      "aggregate_end_to_end_tok_s": 117.97987850884402,
+      "full_overlap_s": 17.337929438974243,
+      "observed_running_max": 1,
+      "metric_samples": 87,
+      "full_concurrency_samples": 86
+    },
+    {
+      "kind": "code",
+      "concurrency": 4,
+      "repetition": 2,
+      "lanes": [
+        {
+          "lane": 1,
+          "start": 319235.603255412,
+          "first": 319235.608552091,
+          "last": 319274.224574588,
+          "done": 319274.225481697,
+          "usage": {
+            "prompt_tokens": 117,
+            "completion_tokens": 2048,
+            "total_tokens": 2165,
+            "prompt_tokens_details": {
+              "cached_tokens": 117
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish": "length",
+          "content_sha256": "f8c2f77ff9c56991a64a1cea1ed476256cace43ce6ab95ab405c7af525b3608d",
+          "request_sha256": "f246b742bb906dd4c02360252f0062a2e5d6c49e5d9cbc7d8f8c0d37c181cc4f",
+          "ttft_s": 0.00529667898081243,
+          "stream_decode_s": 38.61602249700809,
+          "stream_decode_tok_s": 53.00908451041529,
+          "trailing_completion_s": 0.0009071090025827289,
+          "request_total_s": 38.622226284991484,
+          "server_record": {
+            "request_number": 45,
+            "raw": "glm53: done req-45 prompt=117 cached=117 tokens=2048 finish=length tok/s=53.0 ttft=0.00s prefill=0.00s decode=38.62s rounds=555 accepted=1492/1746 round_ms=69.5 gap_ms=0.20 graphs=0 eager=1665 sampled=false sid=44",
+            "finish": "length",
+            "prompt": 117,
+            "cached": 117,
+            "tokens": 2048,
+            "graphs": 0,
+            "eager": 1665,
+            "ttft": 0.0,
+            "prefill": 0.0,
+            "decode": 38.62,
+            "server_decode_tok_s": 53.0,
+            "accepted": 1492,
+            "drafted": 1746
+          },
+          "server_record_matching": "unique_token_counts",
+          "event_count": 556
+        },
+        {
+          "lane": 2,
+          "start": 319235.603505832,
+          "first": 319235.78844323,
+          "last": 319279.205946191,
+          "done": 319279.206826804,
+          "usage": {
+            "prompt_tokens": 112,
+            "completion_tokens": 2048,
+            "total_tokens": 2160,
+            "prompt_tokens_details": {
+              "cached_tokens": 112
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish": "length",
+          "content_sha256": "e9c28e87a8d5fbe3216f7dc8f5a88df3e7f5daf00a70c852cf527068034459c1",
+          "request_sha256": "5da8a0b528e667b62d279862ad0b905c086f1ead41c17c19b091340ea828f883",
+          "ttft_s": 0.18493739794939756,
+          "stream_decode_s": 43.417502961005084,
+          "stream_decode_tok_s": 47.14688456032326,
+          "trailing_completion_s": 0.0008806129917502403,
+          "request_total_s": 43.60332097194623,
+          "server_record": {
+            "request_number": 48,
+            "raw": "glm53: done req-48 prompt=112 cached=112 tokens=2048 finish=length tok/s=47.1 ttft=0.18s prefill=0.00s decode=43.42s rounds=613 accepted=1434/1744 round_ms=70.8 gap_ms=0.04 graphs=0 eager=1839 sampled=false sid=47",
+            "finish": "length",
+            "prompt": 112,
+            "cached": 112,
+            "tokens": 2048,
+            "graphs": 0,
+            "eager": 1839,
+            "ttft": 0.18,
+            "prefill": 0.0,
+            "decode": 43.42,
+            "server_decode_tok_s": 47.1,
+            "accepted": 1434,
+            "drafted": 1744
+          },
+          "server_record_matching": "unique_token_counts",
+          "event_count": 614
+        },
+        {
+          "lane": 3,
+          "start": 319235.603043787,
+          "first": 319235.648347139,
+          "last": 319279.795179532,
+          "done": 319279.796091637,
+          "usage": {
+            "prompt_tokens": 115,
+            "completion_tokens": 2048,
+            "total_tokens": 2163,
+            "prompt_tokens_details": {
+              "cached_tokens": 115
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish": "length",
+          "content_sha256": "84d35be06945bfe02eb7a3862a983ab85aed6c39bc877abb515c406fe583c250",
+          "request_sha256": "79e678f2dc12909482a88468a62f331c70a38c35bc77ed33e5f43fa37c2ead87",
+          "ttft_s": 0.045303352002520114,
+          "stream_decode_s": 44.146832393016666,
+          "stream_decode_tok_s": 46.36799265180809,
+          "trailing_completion_s": 0.0009121049661189318,
+          "request_total_s": 44.193047849985305,
+          "server_record": {
+            "request_number": 46,
+            "raw": "glm53: done req-46 prompt=115 cached=115 tokens=2048 finish=length tok/s=46.4 ttft=0.04s prefill=0.00s decode=44.15s rounds=624 accepted=1423/1727 round_ms=70.7 gap_ms=0.08 graphs=0 eager=1872 sampled=false sid=45",
+            "finish": "length",
+            "prompt": 115,
+            "cached": 115,
+            "tokens": 2048,
+            "graphs": 0,
+            "eager": 1872,
+            "ttft": 0.04,
+            "prefill": 0.0,
+            "decode": 44.15,
+            "server_decode_tok_s": 46.4,
+            "accepted": 1423,
+            "drafted": 1727
+          },
+          "server_record_matching": "unique_token_counts",
+          "event_count": 625
+        },
+        {
+          "lane": 4,
+          "start": 319235.602597788,
+          "first": 319235.708412251,
+          "last": 319280.675319636,
+          "done": 319280.676220275,
+          "usage": {
+            "prompt_tokens": 113,
+            "completion_tokens": 2048,
+            "total_tokens": 2161,
+            "prompt_tokens_details": {
+              "cached_tokens": 113
+            },
+            "completion_tokens_details": {
+              "reasoning_tokens": 0
+            }
+          },
+          "finish": "length",
+          "content_sha256": "35ffef82a60c8bc888d0a351cceae5c4b35055860a0421df9b83470bcf4dcd69",
+          "request_sha256": "f24c93f4ad64ff710aeded010fc4342918c8ad8910dc4a300a8e80d4d9bd1c64",
+          "ttft_s": 0.10581446305150166,
+          "stream_decode_s": 44.966907384980004,
+          "stream_decode_tok_s": 45.522365647136894,
+          "trailing_completion_s": 0.0009006389882415533,
+          "request_total_s": 45.07362248701975,
+          "server_record": {
+            "request_number": 47,
+            "raw": "glm53: done req-47 prompt=113 cached=113 tokens=2048 finish=length tok/s=45.5 ttft=0.10s prefill=0.00s decode=44.97s rounds=644 accepted=1403/1751 round_ms=69.8 gap_ms=0.06 graphs=0 eager=1932 sampled=false sid=46",
+            "finish": "length",
+            "prompt": 113,
+            "cached": 113,
+            "tokens": 2048,
+            "graphs": 0,
+            "eager": 1932,
+            "ttft": 0.1,
+            "prefill": 0.0,
+            "decode": 44.97,
+            "server_decode_tok_s": 45.5,
+            "accepted": 1403,
+            "drafted": 1751
+          },
+          "server_record_matching": "unique_token_counts",
+          "event_count": 645
+        }
+      ],
+      "server_records": [
+        {
+          "request_number": 45,
+          "raw": "glm53: done req-45 prompt=117 cached=117 tokens=2048 finish=length tok/s=53.0 ttft=0.00s prefill=0.00s decode=38.62s rounds=555 accepted=1492/1746 round_ms=69.5 gap_ms=0.20 graphs=0 eager=1665 sampled=false sid=44",
+          "finish": "length",
+          "prompt": 117,
+          "cached": 117,
+          "tokens": 2048,
+          "graphs": 0,
+          "eager": 1665,
+          "ttft": 0.0,
+          "prefill": 0.0,
+          "decode": 38.62,
+          "server_decode_tok_s": 53.0,
+          "accepted": 1492,
+          "drafted": 1746
+        },
+        {
+          "request_number": 48,
+          "raw": "glm53: done req-48 prompt=112 cached=112 tokens=2048 finish=length tok/s=47.1 ttft=0.18s prefill=0.00s decode=43.42s rounds=613 accepted=1434/1744 round_ms=70.8 gap_ms=0.04 graphs=0 eager=1839 sampled=false sid=47",
+          "finish": "length",
+          "prompt": 112,
+          "cached": 112,
+          "tokens": 2048,
+          "graphs": 0,
+          "eager": 1839,
+          "ttft": 0.18,
+          "prefill": 0.0,
+          "decode": 43.42,
+          "server_decode_tok_s": 47.1,
+          "accepted": 1434,
+          "drafted": 1744
+        },
+        {
+          "request_number": 46,
+          "raw": "glm53: done req-46 prompt=115 cached=115 tokens=2048 finish=length tok/s=46.4 ttft=0.04s prefill=0.00s decode=44.15s rounds=624 accepted=1423/1727 round_ms=70.7 gap_ms=0.08 graphs=0 eager=1872 sampled=false sid=45",
+          "finish": "length",
+          "prompt": 115,
+          "cached": 115,
+          "tokens": 2048,
+          "graphs": 0,
+          "eager": 1872,
+          "ttft": 0.04,
+          "prefill": 0.0,
+          "decode": 44.15,
+          "server_decode_tok_s": 46.4,
+          "accepted": 1423,
+          "drafted": 1727
+        },
+        {
+          "request_number": 47,
+          "raw": "glm53: done req-47 prompt=113 cached=113 tokens=2048 finish=length tok/s=45.5 ttft=0.10s prefill=0.00s decode=44.97s rounds=644 accepted=1403/1751 round_ms=69.8 gap_ms=0.06 graphs=0 eager=1932 sampled=false sid=46",
+          "finish": "length",
+          "prompt": 113,
+          "cached": 113,
+          "tokens": 2048,
+          "graphs": 0,
+          "eager": 1932,
+          "ttft": 0.1,
+          "prefill": 0.0,
+          "decode": 44.97,
+          "server_decode_tok_s": 45.5,
+          "accepted": 1403,
+          "drafted": 1751
+        }
+      ],
+      "raw_logs": "[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\ninfo: glm53 LMCache restored 115 prefix tokens on all ranks into slot 1\ninfo: glm53 LMCache restored 113 prefix tokens on all ranks into slot 2\ninfo: glm53 LMCache restored 112 prefix tokens on all ranks into slot 3\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\ninfo: glm53: done req-45 prompt=117 cached=117 tokens=2048 finish=length tok/s=53.0 ttft=0.00s prefill=0.00s decode=38.62s rounds=555 accepted=1492/1746 round_ms=69.5 gap_ms=0.20 graphs=0 eager=1665 sampled=false sid=44\n[tensorfold] done chatcmpl-e7961e9cdf04a25af45a4ef6792c86de prompt=117 cached=117 thinking=False effort=none tokens=2048 sha=396639f04b49 finish=length rounds=555 accepted=1492/1746\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\ninfo: glm53: done req-48 prompt=112 cached=112 tokens=2048 finish=length tok/s=47.1 ttft=0.18s prefill=0.00s decode=43.42s rounds=613 accepted=1434/1744 round_ms=70.8 gap_ms=0.04 graphs=0 eager=1839 sampled=false sid=47\n[tensorfold] done chatcmpl-f7ae7c675dcd5ddffc0f018551a5205a prompt=112 cached=112 thinking=False effort=none tokens=2048 sha=281b1fc0fc2d finish=length rounds=613 accepted=1434/1744\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\ninfo: glm53: done req-46 prompt=115 cached=115 tokens=2048 finish=length tok/s=46.4 ttft=0.04s prefill=0.00s decode=44.15s rounds=624 accepted=1423/1727 round_ms=70.7 gap_ms=0.08 graphs=0 eager=1872 sampled=false sid=45\n[tensorfold] done chatcmpl-7264c01e5350bc43e0f724696433abf2 prompt=115 cached=115 thinking=False effort=none tokens=2048 sha=bb8e6656c6be finish=length rounds=624 accepted=1423/1727\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\n[tensorfold] 127.0.0.1 \"GET /metrics HTTP/1.1\" 200 -\ninfo: glm53: done req-47 prompt=113 cached=113 tokens=2048 finish=length tok/s=45.5 ttft=0.10s prefill=0.00s decode=44.97s rounds=644 accepted=1403/1751 round_ms=69.8 gap_ms=0.06 graphs=0 eager=1932 sampled=false sid=46\n[tensorfold] done chatcmpl-656369e8cbd42fd3ed68f26ae198f08c prompt=113 cached=113 thinking=False effort=none tokens=2048 sha=65ef489669f0 finish=length rounds=644 accepted=1403/1751\n",
+      "total_visible_tokens": 8192,
+      "stream_decode_span_s": 45.0667675450095,
+      "aggregate_stream_decode_tok_s": 181.77474103991173,
+      "server_decode_tok_s": [
+        53.0,
+        47.1,
+        46.4,
+        45.5
+      ],
+      "end_to_end_s": 45.07362248701975,
+      "aggregate_end_to_end_tok_s": 181.74709615050628,
+      "full_overlap_s": 38.43613135803025,
+      "observed_running_max": 4,
+      "metric_samples": 225,
+      "full_concurrency_samples": 192
+    }
+  ],
+  "prefill_runs": [
+    {
+      "case": "cold-16k-r1",
+      "tier": "16k",
+      "repetition": 1,
+      "expected": "WREN-5469",
+      "correct": true,
+      "first_line": "WREN-5469",
+      "server_record": {
+        "request_number": 49,
+        "raw": "glm53: done req-49 prompt=16085 cached=0 tokens=256 finish=length tok/s=69.7 ttft=4.31s prefill=4.31s decode=3.66s rounds=130 accepted=125/204 round_ms=28.1 gap_ms=0.02 graphs=0 eager=390 sampled=false sid=48",
+        "finish": "length",
+        "prompt": 16085,
+        "cached": 0,
+        "tokens": 256,
+        "graphs": 0,
+        "eager": 390,
+        "ttft": 4.31,
+        "prefill": 4.31,
+        "decode": 3.66,
+        "server_decode_tok_s": 69.7,
+        "accepted": 125,
+        "drafted": 204
+      },
+      "raw_logs": "info: glm53 LMCache: stored a complete prefix of 16085 tokens in slot 0 (0.24 GiB per rank)\ninfo: glm53: done req-49 prompt=16085 cached=0 tokens=256 finish=length tok/s=69.7 ttft=4.31s prefill=4.31s decode=3.66s rounds=130 accepted=125/204 round_ms=28.1 gap_ms=0.02 graphs=0 eager=390 sampled=false sid=48\n[tensorfold] done chatcmpl-162758b03fa06cc689a3915c016f9c0c prompt=16085 cached=0 thinking=False effort=none tokens=256 sha=e4eb73f2b421 finish=length rounds=130 accepted=125/204\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\n",
+      "request_sha256": "6089cbd3ea6f708c1c38d738e97996f5e9b5ebba2058c23f9670893a80a0d7ce",
+      "prompt_tokens": 16085,
+      "prefill_tok_s": 3732.0185614849192,
+      "ttft_s": 4.31,
+      "request_total_s": 11.094041680044029,
+      "content_sha256": "80c0b76bffd7011c78709dbf8dc42e30fefbdbee5bcbce1549e5a63185d5b244",
+      "usage": {
+        "prompt_tokens": 16085,
+        "completion_tokens": 256,
+        "total_tokens": 16341,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
+      }
+    },
+    {
+      "case": "cold-32k-r1",
+      "tier": "32k",
+      "repetition": 1,
+      "expected": "WREN-9469",
+      "correct": true,
+      "first_line": "WREN-9469",
+      "server_record": {
+        "request_number": 50,
+        "raw": "glm53: done req-50 prompt=32085 cached=0 tokens=256 finish=length tok/s=69.6 ttft=8.35s prefill=8.34s decode=3.66s rounds=131 accepted=124/199 round_ms=27.9 gap_ms=0.02 graphs=0 eager=393 sampled=false sid=49",
+        "finish": "length",
+        "prompt": 32085,
+        "cached": 0,
+        "tokens": 256,
+        "graphs": 0,
+        "eager": 393,
+        "ttft": 8.35,
+        "prefill": 8.34,
+        "decode": 3.66,
+        "server_decode_tok_s": 69.6,
+        "accepted": 124,
+        "drafted": 199
+      },
+      "raw_logs": "info: glm53 LMCache: stored a complete prefix of 32085 tokens in slot 1 (0.45 GiB per rank)\ninfo: glm53: done req-50 prompt=32085 cached=0 tokens=256 finish=length tok/s=69.6 ttft=8.35s prefill=8.34s decode=3.66s rounds=131 accepted=124/199 round_ms=27.9 gap_ms=0.02 graphs=0 eager=393 sampled=false sid=49\n[tensorfold] done chatcmpl-812931a5e440dbaba0006eba48500791 prompt=32085 cached=0 thinking=False effort=none tokens=256 sha=e46fb6a8593e finish=length rounds=131 accepted=124/199\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\n",
+      "request_sha256": "2e57aab9c67bf8c4fd55d809bba05f7af72d2c29d6a6aeed280560fe399948b7",
+      "prompt_tokens": 32085,
+      "prefill_tok_s": 3847.1223021582737,
+      "ttft_s": 8.35,
+      "request_total_s": 17.704239810002036,
+      "content_sha256": "b1061e253a5a24d6ff49ed2511ebd28716959babd2d0d717b23496cbf9cf8e8a",
+      "usage": {
+        "prompt_tokens": 32085,
+        "completion_tokens": 256,
+        "total_tokens": 32341,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
+      }
+    },
+    {
+      "case": "cold-66k-r1",
+      "tier": "66k",
+      "repetition": 1,
+      "expected": "WREN-17969",
+      "correct": true,
+      "first_line": "WREN-17969",
+      "server_record": {
+        "request_number": 51,
+        "raw": "glm53: done req-51 prompt=66084 cached=0 tokens=256 finish=length tok/s=63.2 ttft=17.08s prefill=17.07s decode=4.04s rounds=143 accepted=112/217 round_ms=28.2 gap_ms=0.02 graphs=0 eager=428 sampled=false sid=50",
+        "finish": "length",
+        "prompt": 66084,
+        "cached": 0,
+        "tokens": 256,
+        "graphs": 0,
+        "eager": 428,
+        "ttft": 17.08,
+        "prefill": 17.07,
+        "decode": 4.04,
+        "server_decode_tok_s": 63.2,
+        "accepted": 112,
+        "drafted": 217
+      },
+      "raw_logs": "info: glm53 LMCache: stored a complete prefix of 66084 tokens in slot 0 (0.89 GiB per rank)\ninfo: glm53: done req-51 prompt=66084 cached=0 tokens=256 finish=length tok/s=63.2 ttft=17.08s prefill=17.07s decode=4.04s rounds=143 accepted=112/217 round_ms=28.2 gap_ms=0.02 graphs=0 eager=428 sampled=false sid=50\n[tensorfold] done chatcmpl-1bbf78c6e2630ae44d5c7f63f20b7791 prompt=66084 cached=0 thinking=False effort=none tokens=256 sha=7548009ec308 finish=length rounds=143 accepted=112/217\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\n",
+      "request_sha256": "c6c9f1b72bd5eea5913711cc5fcf7985c4a1b366e7fbe45031acf1cce2166ce0",
+      "prompt_tokens": 66084,
+      "prefill_tok_s": 3871.3532513181017,
+      "ttft_s": 17.08,
+      "request_total_s": 32.269035172008444,
+      "content_sha256": "10e0ed32c35506e131499813e3dcb640f56c1254e3c3843d289f88d8885ed2bc",
+      "usage": {
+        "prompt_tokens": 66084,
+        "completion_tokens": 256,
+        "total_tokens": 66340,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
+      }
+    },
+    {
+      "case": "cold-16k-r2",
+      "tier": "16k",
+      "repetition": 2,
+      "expected": "WREN-5469",
+      "correct": true,
+      "first_line": "WREN-5469",
+      "server_record": {
+        "request_number": 52,
+        "raw": "glm53: done req-52 prompt=16085 cached=0 tokens=256 finish=length tok/s=67.7 ttft=4.29s prefill=4.28s decode=3.77s rounds=135 accepted=120/203 round_ms=27.9 gap_ms=0.02 graphs=0 eager=405 sampled=false sid=51",
+        "finish": "length",
+        "prompt": 16085,
+        "cached": 0,
+        "tokens": 256,
+        "graphs": 0,
+        "eager": 405,
+        "ttft": 4.29,
+        "prefill": 4.28,
+        "decode": 3.77,
+        "server_decode_tok_s": 67.7,
+        "accepted": 120,
+        "drafted": 203
+      },
+      "raw_logs": "info: glm53 LMCache: stored a complete prefix of 16085 tokens in slot 1 (0.24 GiB per rank)\ninfo: glm53: done req-52 prompt=16085 cached=0 tokens=256 finish=length tok/s=67.7 ttft=4.29s prefill=4.28s decode=3.77s rounds=135 accepted=120/203 round_ms=27.9 gap_ms=0.02 graphs=0 eager=405 sampled=false sid=51\n[tensorfold] done chatcmpl-72d33afe5c1d606eee76ff337c9f94fd prompt=16085 cached=0 thinking=False effort=none tokens=256 sha=f731bf3c1795 finish=length rounds=135 accepted=120/203\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\n",
+      "request_sha256": "b4bb1d68796c7b3cfc29baf9630ef69bcba7fdf568b2ace12584ca03a5192142",
+      "prompt_tokens": 16085,
+      "prefill_tok_s": 3758.1775700934577,
+      "ttft_s": 4.29,
+      "request_total_s": 11.039681758033112,
+      "content_sha256": "5988b23fcdc743ef012c624246578316a10965c7e4b37dbac0e149cf8ab5956e",
+      "usage": {
+        "prompt_tokens": 16085,
+        "completion_tokens": 256,
+        "total_tokens": 16341,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
+      }
+    },
+    {
+      "case": "cold-32k-r2",
+      "tier": "32k",
+      "repetition": 2,
+      "expected": "WREN-9469",
+      "correct": true,
+      "first_line": "WREN-9469",
+      "server_record": {
+        "request_number": 53,
+        "raw": "glm53: done req-53 prompt=32085 cached=0 tokens=256 finish=length tok/s=62.6 ttft=8.30s prefill=8.29s decode=4.07s rounds=146 accepted=109/216 round_ms=27.9 gap_ms=0.02 graphs=0 eager=437 sampled=false sid=52",
+        "finish": "length",
+        "prompt": 32085,
+        "cached": 0,
+        "tokens": 256,
+        "graphs": 0,
+        "eager": 437,
+        "ttft": 8.3,
+        "prefill": 8.29,
+        "decode": 4.07,
+        "server_decode_tok_s": 62.6,
+        "accepted": 109,
+        "drafted": 216
+      },
+      "raw_logs": "info: glm53 LMCache: stored a complete prefix of 32085 tokens in slot 0 (0.45 GiB per rank)\ninfo: glm53: done req-53 prompt=32085 cached=0 tokens=256 finish=length tok/s=62.6 ttft=8.30s prefill=8.29s decode=4.07s rounds=146 accepted=109/216 round_ms=27.9 gap_ms=0.02 graphs=0 eager=437 sampled=false sid=52\n[tensorfold] done chatcmpl-a70fca5741a9fcd51a54a9ad8994e68c prompt=32085 cached=0 thinking=False effort=none tokens=256 sha=1eff7de472a7 finish=length rounds=146 accepted=109/216\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\n",
+      "request_sha256": "5c9cbac2d9c28ab73a06df2c8cc535cc14b828cf7b42fd81e3f8a99f9f3370b5",
+      "prompt_tokens": 32085,
+      "prefill_tok_s": 3870.3256936067555,
+      "ttft_s": 8.3,
+      "request_total_s": 18.05382747395197,
+      "content_sha256": "6afc8aeb41d6633e0745df526a4c82c37ff729c0e4ddf3597ea534eb702cef84",
+      "usage": {
+        "prompt_tokens": 32085,
+        "completion_tokens": 256,
+        "total_tokens": 32341,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
+      }
+    },
+    {
+      "case": "cold-66k-r2",
+      "tier": "66k",
+      "repetition": 2,
+      "expected": "WREN-17969",
+      "correct": true,
+      "first_line": "WREN-17969",
+      "server_record": {
+        "request_number": 54,
+        "raw": "glm53: done req-54 prompt=66084 cached=0 tokens=256 finish=length tok/s=66.1 ttft=17.09s prefill=17.09s decode=3.86s rounds=135 accepted=120/213 round_ms=28.6 gap_ms=0.02 graphs=0 eager=404 sampled=false sid=53",
+        "finish": "length",
+        "prompt": 66084,
+        "cached": 0,
+        "tokens": 256,
+        "graphs": 0,
+        "eager": 404,
+        "ttft": 17.09,
+        "prefill": 17.09,
+        "decode": 3.86,
+        "server_decode_tok_s": 66.1,
+        "accepted": 120,
+        "drafted": 213
+      },
+      "raw_logs": "info: glm53 LMCache: stored a complete prefix of 66084 tokens in slot 1 (0.89 GiB per rank)\ninfo: glm53: done req-54 prompt=66084 cached=0 tokens=256 finish=length tok/s=66.1 ttft=17.09s prefill=17.09s decode=3.86s rounds=135 accepted=120/213 round_ms=28.6 gap_ms=0.02 graphs=0 eager=404 sampled=false sid=53\n[tensorfold] done chatcmpl-dbc38998c57fb1175f6da6910e8113a3 prompt=66084 cached=0 thinking=False effort=none tokens=256 sha=9afd403e9180 finish=length rounds=135 accepted=120/213\n[tensorfold] 127.0.0.1 \"POST /v1/chat/completions HTTP/1.1\" 200 -\n",
+      "request_sha256": "b09302d953259b6932d6911284b7278dde0cabc3003b90c766d475c0b6ea083d",
+      "prompt_tokens": 66084,
+      "prefill_tok_s": 3866.8227033352837,
+      "ttft_s": 17.09,
+      "request_total_s": 32.23565810895525,
+      "content_sha256": "7099f4a0ff767aeb6b6b81f98b8d63910bbd9d54003b63aebe70a5a49449e394",
+      "usage": {
+        "prompt_tokens": 66084,
+        "completion_tokens": 256,
+        "total_tokens": 66340,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
+      }
+    }
+  ],
+  "method": {
+    "decode_repetitions": 2,
+    "decode_concurrencies": [
+      1,
+      4
+    ],
+    "visible_output_tokens_per_request": 2048,
+    "temperature": 0,
+    "thinking": false,
+    "aggregate_stream_decode": "sum(completion_tokens)/(latest_last_content-earliest_first_content)",
+    "aggregate_stream_scope": "Actual client-observed content throughput; includes any synchronous-cache stalls or deferred final-content delivery",
+    "per_request_stream_decode": "(completion_tokens-1)/(last_content-first_content)",
+    "server_decode": "Auxiliary per-request native logged tok/s; its t_end is frozen before that request's tail persistence; never sum these rates to derive aggregate throughput",
+    "prefill": "actual_prompt_tokens/native_logged_prefill_seconds, cached_tokens=0",
+    "trailing_completion": "HTTP/SSE completion minus last content; this is not a measurement of all persistence time because final content can itself be deferred",
+    "native_emit_policy": "Use the existing warmed deployment unchanged; no final-token-flush optimization is required or assumed"
+  },
+  "models": {
+    "object": "list",
+    "data": [
+      {
+        "id": "model",
+        "object": "model",
+        "created": 1794883839,
+        "owned_by": "tensorfold",
+        "context_length": 1000000,
+        "max_model_len": 1000000
+      }
+    ]
+  },
+  "power_before": "0, GPU-1cc4f41d-d6fe-e49e-8662-b502938523ee, NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition, 615.71.09, 300.00\n1, GPU-5302ceff-3e3a-0030-8e99-5bffc5fbcca6, NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition, 615.71.09, 300.00\n2, GPU-c903a4ee-d3d7-0bc5-1011-f62228b4f7b9, NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition, 615.71.09, 300.00\n3, GPU-6295315c-3475-271a-c946-6235109a0eef, NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition, 615.71.09, 300.00",
+  "runtime": {
+    "CpusetCpus": "0-31",
+    "CpusetMems": "0",
+    "Memory": 0,
+    "MemorySwap": 0,
+    "image": "sha256:c61a6ce25a171c1c88f2715af13e49d218b63b4fa9a3da14f91f8e9ec682dd1e",
+    "command": [
+      "-c",
+      "exec bash /deployment/run-ranks.sh 18992 1000000 4"
+    ],
+    "environment": [
+      "NCCL_PR2127_PATH=/opt/libnccl-local-inference.so.2.30.4",
+      "TF_GLM53_DCP_PREFILL_GATHER=1",
+      "NCCL_DEBUG=INFO",
+      "NCCL_DEBUG_SUBSYS=INIT,GRAPH,P2P",
+      "TF_GLM53_CLEAR_UNUSED_KV=1",
+      "TF_GLM53_WORLD=4",
+      "TF_GLM53_DCP_DECODE_PACKED=1",
+      "NCCL_LOCAL_INFERENCE_PATH=/opt/libnccl-local-inference.so.2.30.4",
+      "TF_GLM53_GRAPHS=0",
+      "TF_GLM53_HEAD_Q=/model/lm_head-6bit/lm_head-6bit.safetensors",
+      "TF_GLM53_DCP_STREAMS=1",
+      "TF_GLM53_DCP_DECODE_A2A=0",
+      "TF_GLM53_PREFILL_OWNER_EXCHANGE=1",
+      "NCCL_IB_DISABLE=1",
+      "TF_GLM53_PROMPT_ROWS_SHORT=8192",
+      "TF_GLM53_PREFILL_KV_OVERLAP=0",
+      "TF_GLM53_DSPARK=/port/dspark-ft2",
+      "TF_GLM53_MASTER=127.0.0.1:29697",
+      "TF_GLM53_DCP_STREAMS_RESERVE_GB=12",
+      "TF_GLM53_PREWARM=1",
+      "TF_GLM53_DCP_SHORT_KV=0",
+      "TF_GLM53_DCP=4",
+      "TF_GLM53_PREFILL_AG_IPC=1",
+      "NCCL_PROTO=LL,LL128,Simple",
+      "TF_GLM53_TIMEOUT=1200",
+      "TF_GLM53_DSPARK_POLICY=confidence",
+      "TF_GLM53_ROCE=0",
+      "NCCL_P2P_LEVEL=SYS",
+      "TF_GLM53_PREFILL_PROFILE=0",
+      "TF_GLM53_PROMPT_REUSE=1",
+      "TF_GLM53_SHARED_KV=1",
+      "TF_GLM53_FP8_KV=1",
+      "TF_GLM53_PRECAPTURE=1",
+      "TF_GLM53_PROMPT_ROWS=8192",
+      "TF_GLM53_K=0",
+      "TF_GLM53_REUSE_STRIDE=8192",
+      "NCCL_SOCKET_IFNAME==lo",
+      "TF_GLM53_DSPARK_CONFIDENCE=0.3",
+      "TF_GLM53_AOT=/decode-work/scale4-aot-build-v1/pack",
+      "TF_GLM53_NATIVE=/deployment/native-build/native/bin/tensorfold-native",
+      "TF_GLM53_LMCACHE_PORT=18553",
+      "TF_GLM53_FLUSH_FILE=/rank-logs/.flush-gpu-prefix",
+      "TF_GLM53_LMCACHE_LEARN_GIB=64",
+      "TF_GLM53_RANK_CPUSETS=0-7;8-15;16-23;24-31"
+    ],
+    "rank0_log": "/home/nono/llm-lab/runtime/keys-glm53-decode-20261116/deployment-20261117/rank-logs/rank-0.log"
+  },
+  "decode_summary": [
+    {
+      "kind": "prose",
+      "concurrency": 1,
+      "aggregate_stream_decode_runs": [
+        81.8693916462854,
+        80.81778415919948
+      ],
+      "aggregate_stream_decode_median": 81.34358790274243,
+      "server_per_request_decode_tok_s": [
+        82.0,
+        80.8
+      ],
+      "server_per_request_decode_median": 81.4,
+      "server_per_request_decode_range": [
+        80.8,
+        82.0
+      ]
+    },
+    {
+      "kind": "prose",
+      "concurrency": 4,
+      "aggregate_stream_decode_runs": [
+        135.8191362173346,
+        137.9793562114069
+      ],
+      "aggregate_stream_decode_median": 136.89924621437075,
+      "server_per_request_decode_tok_s": [
+        45.4,
+        38.0,
+        34.9,
+        34.3,
+        45.9,
+        38.5,
+        35.2,
+        34.5
+      ],
+      "server_per_request_decode_median": 36.6,
+      "server_per_request_decode_range": [
+        34.3,
+        45.9
+      ]
+    },
+    {
+      "kind": "code",
+      "concurrency": 1,
+      "aggregate_stream_decode_runs": [
+        117.15853714800556,
+        118.12252479216255
+      ],
+      "aggregate_stream_decode_median": 117.64053097008406,
+      "server_per_request_decode_tok_s": [
+        117.5,
+        118.1
+      ],
+      "server_per_request_decode_median": 117.8,
+      "server_per_request_decode_range": [
+        117.5,
+        118.1
+      ]
+    },
+    {
+      "kind": "code",
+      "concurrency": 4,
+      "aggregate_stream_decode_runs": [
+        178.5937745125996,
+        181.77474103991173
+      ],
+      "aggregate_stream_decode_median": 180.18425777625566,
+      "server_per_request_decode_tok_s": [
+        52.2,
+        46.6,
+        46.3,
+        45.1,
+        53.0,
+        47.1,
+        46.4,
+        45.5
+      ],
+      "server_per_request_decode_median": 46.5,
+      "server_per_request_decode_range": [
+        45.1,
+        53.0
+      ]
+    }
+  ],
+  "prefill_summary": [
+    {
+      "tier": "16k",
+      "prompt_tokens": [
+        16085,
+        16085
+      ],
+      "runs_tok_s": [
+        3732.0185614849192,
+        3758.1775700934577
+      ],
+      "median_tok_s": 3745.0980657891887,
+      "range_tok_s": [
+        3732.0185614849192,
+        3758.1775700934577
+      ],
+      "correct": 2
+    },
+    {
+      "tier": "32k",
+      "prompt_tokens": [
+        32085,
+        32085
+      ],
+      "runs_tok_s": [
+        3847.1223021582737,
+        3870.3256936067555
+      ],
+      "median_tok_s": 3858.7239978825146,
+      "range_tok_s": [
+        3847.1223021582737,
+        3870.3256936067555
+      ],
+      "correct": 2
+    },
+    {
+      "tier": "66k",
+      "prompt_tokens": [
+        66084,
+        66084
+      ],
+      "runs_tok_s": [
+        3871.3532513181017,
+        3866.8227033352837
+      ],
+      "median_tok_s": 3869.0879773266925,
+      "range_tok_s": [
+        3866.8227033352837,
+        3871.3532513181017
+      ],
+      "correct": 2
+    }
+  ],
+  "power_after": "0, GPU-1cc4f41d-d6fe-e49e-8662-b502938523ee, NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition, 615.71.09, 300.00\n1, GPU-5302ceff-3e3a-0030-8e99-5bffc5fbcca6, NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition, 615.71.09, 300.00\n2, GPU-c903a4ee-d3d7-0bc5-1011-f62228b4f7b9, NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition, 615.71.09, 300.00\n3, GPU-6295315c-3475-271a-c946-6235109a0eef, NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition, 615.71.09, 300.00",
+  "finished_utc": "2026-11-17T02:57:39.417463+00:00",
+  "full_record_sha256": "bf8608ce00ff13f7961ee5b3cce12c28d77ff50a872a9745fdc0fa6035490547",
+  "record_note": "Compact measurement record. Exact requests are generated by benchmark_current.py; request/token hashes and output hashes identify the full evidence retained on the measured host.",
+  "native_sha256": "f0d2d178c3c760b814d57c600f3a02c684e7dcd3a9e5e7b3c8e1ede23b1bbaeb",
+  "deployment_validation_passed": true
+}

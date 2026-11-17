@@ -1,0 +1,42 @@
+{
+  "passed": true,
+  "native_sha256": "f0d2d178c3c760b814d57c600f3a02c684e7dcd3a9e5e7b3c8e1ede23b1bbaeb",
+  "phases": {
+    "cold": {
+      "passed": true,
+      "sha256": "8f4d0840c8975c97e850f3774ccdc2906a5761699bde2a49022345f5d3322b9c"
+    },
+    "gpu-v2": {
+      "passed": true,
+      "sha256": "b21cc60de6daaae15f7b43d985cd725eb5ccb1af7693c352538180a50cba768e"
+    },
+    "ram": {
+      "passed": true,
+      "sha256": "26d77752460f41370016b02f4bd057cb8a508a2181082faf88a67dc07ce54152"
+    },
+    "disk": {
+      "passed": true,
+      "sha256": "5a91266c973ccfbe98ba826462860809ef3824a5475b16fc237a12fb10270537"
+    },
+    "parallel": {
+      "passed": true,
+      "sha256": "56bda265de0d6688116eb97a7b7d5e1827393935c9c076457fc8505ec9220fe1"
+    },
+    "parallel-ram": {
+      "passed": true,
+      "sha256": "740fed148ce8b2a923eca48a5350cc4ec3fb28a3c8b96803a051a4ab6c9ee522"
+    },
+    "parallel-disk": {
+      "passed": true,
+      "sha256": "a389014b3721a2e221fb580addd526e1615431053b032759f5d257e69e6f03e9"
+    },
+    "missing-chunk": {
+      "passed": true,
+      "sha256": "57ca38f25e52dd8c87cea6ece439dc31d3356328ac1b609e7d8b5fea636f747f"
+    },
+    "ram-repaired-v2": {
+      "passed": true,
+      "sha256": "1743658260c61e2a969df50970d8f5a42cf2d47ec426cdf0a648db5144eddebe"
+    }
+  }
+}

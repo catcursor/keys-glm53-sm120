@@ -1,0 +1,577 @@
+--- a/zig/src/native/glm53_cuda.zig
++++ b/zig/src/native/glm53_cuda.zig
+@@ -19,7 +19,8 @@
+ //! streams that finished (count, EOS, a stop string, a cancel). Ranks 1..3 apply rank 0's messages in order: ADMIT
+ //! (the request, its slot and prompt-reuse choice), FILL, ROUND (each stream's position, pending token and backlog:
+ //! a follower that disagrees stops), FINISH; every rank computes the picks itself, so no results message is needed.
+-//! Prompt reuse keeps states in the streams' slots; --learn needs --parallel 1.
++//! Prompt reuse keeps states in the streams' slots. LMCache can persist complete shared-KV multi-stream prompts,
++//! including the head and drafter ring; cache transport remains outside the decode arithmetic.
+ const std = @import("std");
+ const cuda = @import("cuda");
+ const api = @import("engine_api");
+@@ -39,7 +40,7 @@
+ 
+ const magic: u32 = 0x47353348; // "G53H"
+ 
+-const Kind = enum(u32) { request = 1, load = 2, persist = 3, forget = 4, bye = 5, admit = 6, fill = 7, round = 8, finish = 9, flush_cache = 10 };
++const Kind = enum(u32) { request = 1, load = 2, persist = 3, forget = 4, bye = 5, admit = 6, fill = 7, round = 8, finish = 9, flush_cache = 10, multi_load = 11, multi_persist = 12 };
+ 
+ const flag_flush: u32 = 1; // PromptReuse.FLUSH
+ const flag_draft: u32 = 2; // "draft": true (drafted, resumable, keeps)
+@@ -428,7 +429,7 @@
+         if (s == null) flags |= flag_greedy;
+         if (h.flush_file) |path| if (sess.reuse != null and takeFlush(path)) {
+             if (h.lmcache_port != null) {
+-                var clear: Head = .{ .kind = @intFromEnum(Kind.flush_cache) };
++                var clear: Head = .{ .kind = @backingInt(Kind.flush_cache) };
+                 try h.send(&clear, &.{});
+             } else {
+                 flags |= flag_flush;
+@@ -442,7 +443,7 @@
+         live.begin = @intCast(c.begin);
+         // the request's number is taken when its header goes out (below): a request that fails before that - no
+         // memory for its payload - must not leave rank 0 a number ahead of the followers
+-        var head: Head = .{ .kind = @intFromEnum(Kind.request), .seq = h.seq + 1, .max_tokens = @intCast(max_tokens), .flags = flags, .prompt_len = @intCast(r.prompt.len), .begin = @intCast(c.begin), .n_stops = @intCast(c.stops.len), .n_keeps = @intCast(c.keeps.len), .n_eos = @intCast(r.eos.len) };
++        var head: Head = .{ .kind = @backingInt(Kind.request), .seq = h.seq + 1, .max_tokens = @intCast(max_tokens), .flags = flags, .prompt_len = @intCast(r.prompt.len), .begin = @intCast(c.begin), .n_stops = @intCast(c.stops.len), .n_keeps = @intCast(c.keeps.len), .n_eos = @intCast(r.eos.len) };
+         if (s) |x| {
+             head.seed = x.seed;
+             head.temperature = x.temperature;
+@@ -632,9 +633,15 @@
+         var flags: u32 = if (draft) flag_draft else 0;
+         if (s == null) flags |= flag_greedy;
+         if (h.flush_file) |path| if (mu.store != null and takeFlush(path)) {
+-            flags |= flag_flush;
+-            try mu.flushReuse(); // rank 0 forgets before it chooses; the others at the admission
++            var clear: Head = .{ .kind = @backingInt(Kind.flush_cache) };
++            h.send(&clear, &.{}) catch |err| {
++                mu.broken = true;
++                return err;
++            };
++            try h.flushCaches();
+         };
++        if (draft and h.learned != null and h.lmcache_port != null)
++            _ = try h.loadMultiLearned(r.prompt, max_tokens);
+         const c = try mu.choose(r.prompt, max_tokens, draft);
+         defer c.deinit(h.gpa);
+         const sid = mu.next_sid;
+@@ -642,7 +649,7 @@
+         errdefer h.gpa.destroy(lv);
+         lv.* = .{ .h = h, .job = job, .started = job.submitted, .begin = @intCast(c.begin), .sid = sid, .sampling = s, .draft = draft };
+         // the message's number is taken when it goes out (below), as a --parallel 1 request's
+-        var head: Head = .{ .kind = @intFromEnum(Kind.admit), .seq = h.mseq + 1, .max_tokens = @intCast(max_tokens), .flags = flags, .prompt_len = @intCast(r.prompt.len), .begin = @intCast(c.begin), .n_stops = @intCast(c.stops.len), .n_keeps = @intCast(c.keeps.len), .n_eos = @intCast(r.eos.len), .key = sid, .at = @intCast(c.slot), .pad = if (c.src) |x| @intCast(x + 1) else 0 };
++        var head: Head = .{ .kind = @backingInt(Kind.admit), .seq = h.mseq + 1, .max_tokens = @intCast(max_tokens), .flags = flags, .prompt_len = @intCast(r.prompt.len), .begin = @intCast(c.begin), .n_stops = @intCast(c.stops.len), .n_keeps = @intCast(c.keeps.len), .n_eos = @intCast(r.eos.len), .key = sid, .at = @intCast(c.slot), .pad = if (c.src) |x| @intCast(x + 1) else 0 };
+         if (s) |x| {
+             head.seed = x.seed;
+             head.temperature = x.temperature;
+@@ -669,7 +676,7 @@
+     fn linkFill(ctx: *anyopaque, sid: u32) anyerror!void {
+         const h: *Host = @ptrCast(@alignCast(ctx));
+         h.mseq += 1;
+-        var head: Head = .{ .kind = @intFromEnum(Kind.fill), .seq = h.mseq, .key = sid };
++        var head: Head = .{ .kind = @backingInt(Kind.fill), .seq = h.mseq, .key = sid };
+         try h.sendOne(&head, &.{});
+         h.flushEmits(); // a prompt chunk runs next: the decoding replies hear their last round first
+     }
+@@ -679,7 +686,7 @@
+         var buf: [glm.multi.plan_words]u32 = undefined;
+         const w = try plan.encode(&buf);
+         h.mseq += 1;
+-        var head: Head = .{ .kind = @intFromEnum(Kind.round), .seq = h.mseq, .at = @intCast(w.len) };
++        var head: Head = .{ .kind = @backingInt(Kind.round), .seq = h.mseq, .at = @intCast(w.len) };
+         try h.sendOne(&head, w);
+     }
+ 
+@@ -708,8 +715,15 @@
+         var buf: [glm.multi.max_streams]u32 = undefined;
+         const done = mu.doneList(&buf);
+         if (done.len == 0) return;
++        // Complete prompt states are still present in their original slots on every rank. Persist before FINISH
++        // and before another admission can reuse the extent. A cache miss/write failure is non-fatal.
++        if (h.learned != null and h.lmcache_port != null) {
++            for (done) |sid| if (mu.find(sid)) |st| {
++                if (st.started and st.keep_prefixes) try h.persistMultiComplete(st.slot, st.prompt);
++            };
++        }
+         h.mseq += 1;
+-        var head: Head = .{ .kind = @intFromEnum(Kind.finish), .seq = h.mseq, .at = @intCast(done.len) };
++        var head: Head = .{ .kind = @backingInt(Kind.finish), .seq = h.mseq, .at = @intCast(done.len) };
+         try h.sendOne(&head, done);
+         for (done) |sid| {
+             const st = mu.find(sid) orelse continue;
+@@ -827,7 +841,16 @@
+                 },
+                 .flush_cache => {
+                     try h.verify(&head, &.{});
+-                    if (h.session.reuse) |pr| try pr.flush();
++                    try h.flushCaches();
++                },
++                .multi_load, .multi_persist => {
++                    const ids = try h.recvWords(head.at);
++                    defer h.gpa.free(ids);
++                    try h.verify(&head, ids);
++                    if (kind == .multi_load)
++                        _ = try h.learnMultiLoad(head.key, ids, head.pad, head.max_tokens)
++                    else
++                        _ = try h.learnMultiPersist(head.key, ids, head.pad);
+                 },
+                 .admit, .fill, .round, .finish => try h.followMulti(&head),
+             }
+@@ -949,6 +972,173 @@
+ 
+     // ------------------------------------------------------------------------------------------------ --learn ---
+ 
++    fn flushCaches(h: *Host) !void {
++        if (h.boot.multi) |mu| {
++            errdefer mu.broken = true;
++            const flushed = blk: {
++                mu.flushReuse() catch break :blk false;
++                break :blk true;
++            };
++            if (!try h.boot.rdv.agree(flushed)) return error.CacheFlushFailed;
++        } else if (h.session.reuse) |pr| try pr.flush();
++    }
++
++    /// Complete multi-stream prompts can also replay their saved head; the old single-stream index matcher
++    /// intentionally leaves a row to prefill. Strict prefixes still require the original chunk boundaries.
++    fn loadMultiLearned(h: *Host, prompt: []const u32, count: usize) !usize {
++        const mu = h.boot.multi.?;
++        errdefer mu.broken = true;
++        if (mu.store == null) return 0;
++        const choice = try mu.choose(prompt, count, true);
++        defer choice.deinit(h.gpa);
++        const points = try mu.plan_rz.points(h.gpa, prompt);
++        defer h.gpa.free(points);
++        const m = &h.learned.?;
++        var key: u64 = 0;
++        var at: usize = choice.begin;
++        for (m.metas.items) |x| {
++            if (x.at <= at or x.at > prompt.len or x.tokens.len != x.at or
++                !std.mem.eql(u32, prompt[0..x.at], x.tokens)) continue;
++            var n: usize = 0;
++            while (n < points.len and points[n] < x.at) n += 1;
++            if (n != x.starts.len) continue;
++            var same = true;
++            for (points[0..n], x.starts) |p, q| if (p != q) {
++                same = false;
++                break;
++            };
++            if (!same or (x.at < prompt.len and std.mem.indexOfScalar(usize, points, x.at) == null and !mu.store.?.loose)) continue;
++            key = x.key;
++            at = x.at;
++        }
++        if (at <= choice.begin) return 0;
++        const tokens = prompt.len + count;
++        var head: Head = .{ .kind = @backingInt(Kind.multi_load), .key = key, .at = @intCast(at), .pad = @intCast(choice.slot), .max_tokens = @intCast(tokens) };
++        try h.send(&head, prompt[0..at]);
++        if (try h.learnMultiLoad(key, prompt[0..at], choice.slot, tokens)) {
++            m.touch(key);
++            return at;
++        }
++        var forget: Head = .{ .kind = @backingInt(Kind.forget), .key = key };
++        try h.send(&forget, &.{});
++        h.learnForget(key);
++        return 0;
++    }
++
++    fn readMultiRemote(h: *Host, key: u64, ids: []const u32, slot: usize) !*glm.reuse.Kept {
++        const mu = h.boot.multi.?;
++        const mode = glm.multi.modeOf(h.boot.mode);
++        const bytes = try mu.cacheStateBytes(ids.len, mode);
++        var cache = try lmcache.StateStream.connect(h.gpa, h.lmcache_port.?, ids, @intCast(bytes), h.identity, h.boot.o.world, h.rank);
++        defer cache.close();
++        return mu.readCacheState(slot, ids, mode, &cache, key, h.identity);
++    }
++
++    fn learnMultiLoad(h: *Host, key: u64, ids: []const u32, slot: usize, tokens: usize) !bool {
++        const mu = h.boot.multi.?;
++        errdefer mu.broken = true;
++        const st = &mu.store.?;
++        // Geometry and old-entry eviction happen on all ranks before any fallible external-cache operation.
++        const prepared = blk: {
++            mu.prepareCacheSlot(slot, ids, tokens, glm.multi.modeOf(h.boot.mode)) catch |err| {
++                std.log.err("glm53 rank {d}: LMCache slot preparation failed ({t})", .{ h.rank, err });
++                break :blk false;
++            };
++            break :blk true;
++        };
++        if (!try h.boot.rdv.agree(prepared)) {
++            // A partial extent change or device error cannot be repaired independently on one rank. All ranks
++            // stop this decoder together instead of allowing another admission to enter mismatched collectives.
++            mu.broken = true;
++            return error.CachePrepareFailed;
++        }
++        const got = h.readMultiRemote(key, ids, slot) catch |err| blk: {
++            std.log.warn("glm53 rank {d}: LMCache multi state {x:0>16} not read ({t}); cold prefill", .{ h.rank, key, err });
++            break :blk null;
++        };
++        if (!try h.boot.rdv.agree(got != null)) {
++            if (got) |e| st.destroy(e);
++            try mu.abortCacheSlot(slot);
++            return false;
++        }
++        const installed = mu.installCacheState(got.?);
++        if (!installed) st.destroy(got.?);
++        if (!try h.boot.rdv.agree(installed)) {
++            // Keep every rank's store identical even if one could not allocate the bookkeeping entry.
++            try mu.flushReuse();
++            try mu.abortCacheSlot(slot);
++            return false;
++        }
++        if (h.rank == 0) std.log.info("glm53 LMCache restored {d} prefix tokens on all ranks into slot {d}", .{ ids.len, slot });
++        return true;
++    }
++
++    fn persistMultiComplete(h: *Host, slot: usize, ids: []const u32) !void {
++        const mu = h.boot.multi.?;
++        errdefer mu.broken = true;
++        const st = if (mu.store) |*x| x else return;
++        const e = st.namedIn(ids, ids.len, slot) orelse return;
++        if (e.head == null or e.learned) return;
++        const key = Imprint.keyOf(ids);
++        const m = &h.learned.?;
++        if (m.has(key)) return;
++        const bytes = try mu.cacheStateBytes(ids.len, glm.multi.modeOf(h.boot.mode));
++        if (bytes > m.cap) return;
++        while (!m.fits(bytes)) {
++            const victim = m.victim() orelse return;
++            var forget: Head = .{ .kind = @backingInt(Kind.forget), .key = victim };
++            try h.send(&forget, &.{});
++            h.learnForget(victim);
++        }
++        var head: Head = .{ .kind = @backingInt(Kind.multi_persist), .key = key, .at = @intCast(ids.len), .pad = @intCast(slot) };
++        try h.send(&head, ids);
++        _ = try h.learnMultiPersist(key, ids, slot);
++    }
++
++    fn writeMultiRemote(h: *Host, key: u64, e: *glm.reuse.Kept) !u64 {
++        const mu = h.boot.multi.?;
++        const mode = glm.multi.modeOf(h.boot.mode);
++        const bytes = try mu.cacheStateBytes(e.n(), mode);
++        var cache = try lmcache.StateStream.connect(h.gpa, h.lmcache_port.?, e.ids, @intCast(bytes), h.identity, h.boot.o.world, h.rank);
++        defer cache.close();
++        const written = try mu.writeCacheState(e, mode, &cache, key, h.identity);
++        try cache.finish();
++        return written;
++    }
++
++    fn addMultiIndex(h: *Host, key: u64, ids: []const u32, bytes: u64) !void {
++        const pts = try h.session.plan.points(h.gpa, ids);
++        defer h.gpa.free(pts);
++        const starts = try h.gpa.alloc(u32, pts.len);
++        defer h.gpa.free(starts);
++        for (pts, starts) |p, *x| x.* = @intCast(p);
++        try h.learned.?.add(key, @intCast(ids.len), ids, starts, bytes);
++    }
++
++    fn learnMultiPersist(h: *Host, key: u64, ids: []const u32, slot: usize) !bool {
++        const mu = h.boot.multi.?;
++        const e = mu.store.?.namedIn(ids, ids.len, slot);
++        const bytes = if (e) |entry| h.writeMultiRemote(key, entry) catch |err| blk: {
++            std.log.warn("glm53 rank {d}: LMCache multi state {x:0>16} not written ({t})", .{ h.rank, key, err });
++            break :blk 0;
++        } else 0;
++        if (!try h.boot.rdv.agree(bytes > 0)) return false;
++        const indexed = blk: {
++            h.addMultiIndex(key, ids, bytes) catch |err| {
++                std.log.warn("glm53 rank {d}: LMCache multi index not written ({t})", .{ h.rank, err });
++                break :blk false;
++            };
++            break :blk true;
++        };
++        if (!try h.boot.rdv.agree(indexed)) {
++            h.learnForget(key);
++            return false;
++        }
++        e.?.learned = true;
++        if (h.rank == 0) std.log.info("glm53 LMCache: stored a complete prefix of {d} tokens in slot {d} ({d:.2} GiB per rank)", .{ ids.len, slot, @as(f64, @floatFromInt(bytes)) / (1 << 30) });
++        return true;
++    }
++
+     fn dir(h: *const Host) []const u8 {
+         return h.learned.?.dir;
+     }
+@@ -968,13 +1158,13 @@
+         const best = m.best(prompt, starts, true, @intCast(in_memory)) orelse return 0;
+         const key = best.key;
+         const at = best.at;
+-        var head: Head = .{ .kind = @intFromEnum(Kind.load), .key = key, .at = at };
++        var head: Head = .{ .kind = @backingInt(Kind.load), .key = key, .at = at };
+         try h.send(&head, prompt[0..at]);
+         if (try h.learnLoad(key, prompt[0..at])) {
+             m.touch(key);
+             return at;
+         }
+-        var forget: Head = .{ .kind = @intFromEnum(Kind.forget), .key = key };
++        var forget: Head = .{ .kind = @backingInt(Kind.forget), .key = key };
+         try h.send(&forget, &.{});
+         h.learnForget(key);
+         return 0;
+@@ -1050,11 +1240,11 @@
+             const bytes = try h.stateBytes(e.n());
+             while (!m.fits(bytes)) {
+                 const v = m.victim() orelse return; // nothing more to give
+-                var forget: Head = .{ .kind = @intFromEnum(Kind.forget), .key = v };
++                var forget: Head = .{ .kind = @backingInt(Kind.forget), .key = v };
+                 try h.send(&forget, &.{});
+                 h.learnForget(v);
+             }
+-            var head: Head = .{ .kind = @intFromEnum(Kind.persist), .key = key, .at = @intCast(e.n()) };
++            var head: Head = .{ .kind = @backingInt(Kind.persist), .key = key, .at = @intCast(e.n()) };
+             const ids = try h.gpa.dupe(u32, e.ids);
+             defer h.gpa.free(ids);
+             try h.send(&head, ids);
+@@ -1143,9 +1333,43 @@
+         x.update(std.mem.asBytes(&shape));
+         x.update(o.experts);
+         x.update(o.pe_det);
++        if (o.parallel > 1) {
++            x.update("glm53-multi-lmcache-v2-complete-head-ring");
++            x.update(std.mem.asBytes(&b.head_identity));
++            const multi_shape = [_]u64{ o.parallel, o.context, @intFromBool(o.shared_kv), @intFromBool(o.fp8_kv), @intFromBool(o.reuse.loose), @intFromBool(o.dcp_prefill_gather), @intFromBool(o.dcp_decode_packed), @intFromBool(o.dcp_decode_a2a), @intFromBool(o.graphs) };
++            x.update(std.mem.asBytes(&multi_shape));
++            o.multi_set.digest(&x);
++            b.dspark_set.digest(&x);
++            o.dflash_set.digest(&x);
++            // A different native build or drafter checkpoint must never resume old head/ring bytes.
++            try hashIdentityFile(&x, "/proc/self/exe");
++            for ([_][]const u8{ o.dspark, o.dflash }) |dir_| {
++                if (dir_.len == 0) continue;
++                for ([_][]const u8{ "config.json", "model.safetensors" }) |name| {
++                    const path = try std.fs.path.join(h.gpa, &.{ dir_, name });
++                    defer h.gpa.free(path);
++                    const z = try h.gpa.dupeSentinel(u8, path, 0);
++                    defer h.gpa.free(z);
++                    try hashIdentityFile(&x, z);
++                }
++            }
++        }
+         const probe = try h.session.probe();
+         x.update(std.mem.asBytes(&probe));
+         return x.final();
++    }
++
++    fn hashIdentityFile(hash: *std.hash.Wyhash, path: [:0]const u8) !void {
++        const fd = std.c.open(path, .{ .ACCMODE = .RDONLY }, @as(std.c.mode_t, 0));
++        if (fd < 0) return error.CacheIdentityRead;
++        defer _ = std.c.close(fd);
++        var buf: [64 << 10]u8 = undefined;
++        while (true) {
++            const n = std.c.read(fd, &buf, buf.len);
++            if (n < 0) return error.CacheIdentityRead;
++            if (n == 0) break;
++            hash.update(buf[0..@intCast(n)]);
++        }
+     }
+ 
+     fn writeDump(h: *Host, path: []const u8, job: Job, live: *const Live, oc: Outcome, tokens: []const u32) !void {
+@@ -1222,7 +1446,7 @@
+         h.wake.broadcast(h.io);
+         h.unlock();
+         if (h.thread) |t| t.join();
+-        var bye: Head = .{ .kind = @intFromEnum(Kind.bye) };
++        var bye: Head = .{ .kind = @backingInt(Kind.bye) };
+         h.send(&bye, &.{}) catch {};
+     }
+     h.queue.deinit(h.gpa);
+@@ -1282,10 +1506,6 @@
+         problem.* = try std.fmt.allocPrint(a, "--parallel {d}: at most {d} concurrent streams", .{ opts.parallel, glm.multi.max_streams });
+         return null;
+     }
+-    if (o.learn != null and opts.parallel > 1) {
+-        problem.* = "--learn keeps one stream's prompt states: serve --parallel 1 with it";
+-        return null;
+-    }
+     if (o.learn != null and !opts.reuse.on) {
+         problem.* = "--learn keeps prompt states that prompt reuse made: set TF_GLM53_PROMPT_REUSE=1 on every rank";
+         return null;
+@@ -1296,6 +1516,12 @@
+         null;
+     if (lmcache_port != null and (lmcache_port.? == 0 or o.learn == null)) {
+         problem.* = "TF_GLM53_LMCACHE_PORT needs a loopback port and a per-rank --learn directory";
++        return null;
++    }
++    if (o.learn != null and opts.parallel > 1 and
++        (lmcache_port == null or !opts.shared_kv or !opts.fp8_kv or opts.k != 0))
++    {
++        problem.* = "multi-stream --learn requires LMCache with shared FP8 KV and --mtp-drafts 0";
+         return null;
+     }
+     const boot = eng.Boot.init(gpa, io, opts) catch |e| {
+@@ -1362,7 +1588,7 @@
+ }
+ 
+ test "a sealed message checks, a changed one does not" {
+-    var head: Head = .{ .kind = @intFromEnum(Kind.request), .seq = 7, .prompt_len = 3 };
++    var head: Head = .{ .kind = @backingInt(Kind.request), .seq = 7, .prompt_len = 3 };
+     const words_ = [_]u32{ 1, 2, 3 };
+     head.sum = sealOf(&head, &words_);
+     try std.testing.expectEqual(head.sum, sealOf(&head, &words_));
+--- a/zig/src/families/glm_moe_dsa/cuda_multi.zig
++++ b/zig/src/families/glm_moe_dsa/cuda_multi.zig
+@@ -960,6 +960,147 @@
+         mu.plan_rz = plan;
+     }
+ 
++    // Complete multi-stream prompt snapshots. Unlike Session's single-stream files these include the head and
++    // drafter ring, and address the selected slot's current shared-KV extent, never the pool's offset zero.
++    const CacheHead = extern struct {
++        magic: u32 = 0x4d333547,
++        version: u32 = 2,
++        rank: u32,
++        world: u32,
++        dcp: u32,
++        n: u32,
++        key: u64,
++        identity: u64,
++        views: u32,
++        mode: u32,
++        bytes: u64,
++        carry: u64,
++        head: u64,
++        ring: u64,
++    };
++
++    fn cacheRingBytes(mu: *const Multi, n: usize, mode: Mode) usize {
++        return if (mu.mdOf(mode)) |x| x.windowBytes(n) else 0;
++    }
++
++    pub fn cacheStateBytes(mu: *Multi, n: usize, mode: Mode) !u64 {
++        const vs = try rz.rowViews(mu.gpa, &mu.r.st, mu.w.config, n, mu.r.set.dcp);
++        defer mu.gpa.free(vs);
++        var total: u64 = @sizeOf(CacheHead) + vs.len * 16 + mu.D * 2 + mu.V * 4 + mu.cacheRingBytes(n, mode);
++        for (vs) |v| total += v.row * v.rows;
++        return total;
++    }
++
++    /// Reserve the complete future request before doing external I/O. All ranks do this unconditionally so an
++    /// absent/corrupt shard cannot leave their old slot entries or extent geometry different.
++    pub fn prepareCacheSlot(mu: *Multi, slot: usize, ids: []const u32, tokens: usize, mode: Mode) !void {
++        if (slot >= mu.N or mu.busy[slot] or tokens < ids.len or !mu.r.set.shared_kv) return error.BadCacheSlot;
++        const st = if (mu.store) |*x| x else return error.ReuseOff;
++        try mu.r.f.s.synchronize();
++        try st.lives[slot].ensureTotalCapacity(mu.gpa, ids.len);
++        try st.entries.ensureUnusedCapacity(mu.gpa, 1);
++        try mu.forgetSlot(slot);
++        try mu.reserveKv(.{ .sid = 0, .slot = slot, .mode = mode, .count = tokens - ids.len, .prompt = ids });
++        try mu.r.f.s.synchronize();
++    }
++
++    pub fn abortCacheSlot(mu: *Multi, slot: usize) !void {
++        if (slot >= mu.N or mu.busy[slot]) return error.BadCacheSlot;
++        try mu.r.f.s.synchronize();
++        try mu.forgetSlot(slot);
++    }
++
++    pub fn installCacheState(mu: *Multi, e: *rz.Kept) bool {
++        const st = if (mu.store) |*x| x else return false;
++        st.setLiveSlot(e.slot, e.ids) catch return false;
++        return st.remember(e, &.{});
++    }
++
++    pub fn writeCacheState(mu: *Multi, e: *rz.Kept, mode: Mode, writer: anytype, key: u64, identity: u64) !u64 {
++        const st = if (mu.store) |*x| x else return error.ReuseOff;
++        const ring_bytes = mu.cacheRingBytes(e.n(), mode);
++        if (!st.usable(e) or e.head == null or e.saved != null or e.slot >= mu.N or
++            (ring_bytes > 0 and (e.ring == null or e.ring.?.len < ring_bytes))) return error.StateGone;
++        const vs = try rz.rowViews(mu.gpa, &mu.views[e.slot], mu.w.config, e.n(), mu.r.set.dcp);
++        defer mu.gpa.free(vs);
++        var total: u64 = 0;
++        for (vs) |v| total += v.row * v.rows;
++        const head: CacheHead = .{ .rank = @intCast(mu.w.rank), .world = @intCast(mu.w.world), .dcp = @intCast(mu.r.set.dcp), .n = @intCast(e.n()), .key = key, .identity = identity, .views = @intCast(vs.len), .mode = @backingInt(mode), .bytes = total, .carry = mu.D * 2, .head = mu.V * 4, .ring = ring_bytes };
++        try writer.writeAll(std.mem.asBytes(&head));
++        for (vs) |v| {
++            const size = [2]u64{ v.row, v.rows };
++            try writer.writeAll(std.mem.sliceAsBytes(&size));
++        }
++        try mu.r.f.s.synchronize();
++        var stage = try cuda.HostBuffer.alloc(mu.r.d, 4 << 20);
++        defer stage.free();
++        for (vs) |v| try mu.cacheWriteDevice(writer, &stage, v.ptr, v.row * v.rows);
++        try mu.cacheWriteDevice(writer, &stage, e.carry.ptr, mu.D * 2);
++        try mu.cacheWriteDevice(writer, &stage, e.head.?.ptr, mu.V * 4);
++        if (ring_bytes > 0) try mu.cacheWriteDevice(writer, &stage, e.ring.?.ptr, ring_bytes);
++        return @sizeOf(CacheHead) + vs.len * 16 + total + head.carry + head.head + head.ring;
++    }
++
++    fn cacheWriteDevice(mu: *Multi, writer: anytype, stage: *cuda.HostBuffer, ptr: u64, len: usize) !void {
++        var off: usize = 0;
++        while (off < len) {
++            const size = @min(stage.bytes.len, len - off);
++            try mu.r.d.check(mu.r.d.api.cuMemcpyDtoH_v2(stage.bytes.ptr, ptr + off, size), "cuMemcpyDtoH cache");
++            try writer.writeAll(stage.bytes[0..size]);
++            off += size;
++        }
++    }
++
++    /// The target slot was reserved on every rank. No entry becomes visible until all shards have been read and
++    /// validated; a partial read only touches an idle slot which the caller forgets on every rank on failure.
++    pub fn readCacheState(mu: *Multi, slot: usize, ids: []const u32, mode: Mode, reader: anytype, key: u64, identity: u64) !*rz.Kept {
++        const st = if (mu.store) |*x| x else return error.ReuseOff;
++        if (slot >= mu.N or mu.busy[slot]) return error.BadCacheSlot;
++        const vs = try rz.rowViews(mu.gpa, &mu.views[slot], mu.w.config, ids.len, mu.r.set.dcp);
++        defer mu.gpa.free(vs);
++        var total: u64 = 0;
++        for (vs) |v| total += v.row * v.rows;
++        const ring_bytes = mu.cacheRingBytes(ids.len, mode);
++        var head: CacheHead = undefined;
++        try reader.readAt(std.mem.asBytes(&head), 0);
++        if (head.magic != 0x4d333547 or head.version != 2 or head.rank != mu.w.rank or head.world != mu.w.world or
++            head.dcp != mu.r.set.dcp or head.n != ids.len or head.key != key or head.identity != identity or
++            head.views != vs.len or head.mode != @backingInt(mode) or head.bytes != total or
++            head.carry != mu.D * 2 or head.head != mu.V * 4 or head.ring != ring_bytes) return error.StateRefused;
++        const sizes = try mu.gpa.alloc([2]u64, vs.len);
++        defer mu.gpa.free(sizes);
++        try reader.readAt(std.mem.sliceAsBytes(sizes), @sizeOf(CacheHead));
++        for (vs, sizes) |v, size| if (size[0] != v.row or size[1] != v.rows) return error.StateRefused;
++        const e = try mu.gpa.create(rz.Kept);
++        e.* = .{ .ids = mu.gpa.dupe(u32, ids) catch |err| {
++            mu.gpa.destroy(e);
++            return err;
++        }, .slot = slot, .shared = true, .learned = true };
++        errdefer st.destroy(e);
++        e.carry = try mu.pool.?.get(mu.D * 2);
++        e.head = try mu.pool.?.get(mu.V * 4);
++        if (ring_bytes > 0) e.ring = try mu.pool.?.get(ring_bytes);
++        var stage = try cuda.HostBuffer.alloc(mu.r.d, 4 << 20);
++        defer stage.free();
++        var pos: u64 = @sizeOf(CacheHead) + vs.len * 16;
++        for (vs) |v| try mu.cacheReadDevice(reader, &stage, v.ptr, v.row * v.rows, &pos);
++        try mu.cacheReadDevice(reader, &stage, e.carry.ptr, mu.D * 2, &pos);
++        try mu.cacheReadDevice(reader, &stage, e.head.?.ptr, mu.V * 4, &pos);
++        if (ring_bytes > 0) try mu.cacheReadDevice(reader, &stage, e.ring.?.ptr, ring_bytes, &pos);
++        return e;
++    }
++
++    fn cacheReadDevice(mu: *Multi, reader: anytype, stage: *cuda.HostBuffer, ptr: u64, len: usize, pos: *u64) !void {
++        var off: usize = 0;
++        while (off < len) {
++            const size = @min(stage.bytes.len, len - off);
++            try reader.readAt(stage.bytes[0..size], pos.*);
++            try mu.r.d.check(mu.r.d.api.cuMemcpyHtoD_v2(ptr + off, stage.bytes.ptr, size), "cuMemcpyHtoD cache");
++            pos.* += size;
++            off += size;
++        }
++    }
++
+     /// Every rank: forget every kept state (REUSE_FLUSH).
+     pub fn flushReuse(mu: *Multi) !void {
+         const st = if (mu.store) |*x| x else return;
+--- a/zig/src/families/glm_moe_dsa/cuda_engine.zig
++++ b/zig/src/families/glm_moe_dsa/cuda_engine.zig
+@@ -358,6 +358,7 @@
+     prewarm_graphs: usize = 0,
+     prewarm_s: f64 = 0,
+     nccl_version: c_int = 0,
++    head_identity: u64 = 0, // the quantized head's validated fingerprint (0: ordinary bf16 head)
+     stage: u8 = 0, // how far init got (deinit undoes that much)
+ 
+     /// Every rank of the world loaded and warmed, in step with the others (rendezvous barriers between stages).
+@@ -450,6 +451,7 @@
+         dh.update(std.mem.asBytes(&mode_word));
+         // a quantized head's bytes and the kv_b setting join the record only when on: off, the digest is unchanged
+         const head_id = try headq.identityOf(gpa, io, o.head_q, o.model, b.cfg.vocab, b.cfg.hidden);
++        b.head_identity = head_id;
+         if (head_id != 0) dh.update(std.mem.asBytes(&head_id));
+         if (o.kvb_q) dh.update("kvb_q");
+         try b.rdv.sync("settings", settingsDigest(o, b.dcp, dh.final()), o.timeout_s);

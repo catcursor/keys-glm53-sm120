@@ -21,14 +21,23 @@ trap 'exit 143' TERM
 trap 'exit 130' INT
 
 for rank in 0 1 2 3; do
+    affinity_args=()
+    if [[ -n ${TF_GLM53_RANK_CPUSETS:-} ]]; then
+        IFS=';' read -r -a rank_cpus <<< "$TF_GLM53_RANK_CPUSETS"
+        if (( ${#rank_cpus[@]} != 4 )); then
+            echo "TF_GLM53_RANK_CPUSETS must contain four semicolon-separated CPU sets" >&2
+            exit 1
+        fi
+        affinity_args=(taskset -c "${rank_cpus[$rank]}")
+    fi
     learn_args=()
     if [[ -n ${TF_GLM53_LMCACHE_PORT:-} ]]; then
         learn_dir=/rank-logs/lmcache-index/rank-$rank
         mkdir -p -m 700 "$learn_dir"
-        learn_args=(--learn-dir "$learn_dir" --learn-gib 4)
+        learn_args=(--learn-dir "$learn_dir" --learn-gib "${TF_GLM53_LMCACHE_LEARN_GIB:-4}")
     fi
     TF_GLM53_RANK=$rank TF_GLM53_DEVICE=$rank TF_GLM53_TILES=/port/ref/tiles-r$rank.json \
-        "$native" serve /model --host 127.0.0.1 --port "$port" --name model \
+        "${affinity_args[@]}" "$native" serve /model --host 127.0.0.1 --port "$port" --name model \
         --context "$context" --parallel "$parallel" --thinking --reasoning-effort high --no-update-check "${learn_args[@]}" \
         >"/rank-logs/rank-$rank.log" 2>&1 &
     pids+=("$!")
