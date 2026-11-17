@@ -6,7 +6,7 @@ prompts, generation limits, two repetitions, concurrency order, and prefill
 inventory repetitions are retained. Prefill gets a new leading run marker to
 guarantee a cold prefix. This script never modifies hardware or serving settings.
 The streamed aggregate is actual client-observed throughput on the running
-deployment; synchronous cache persistence may delay its final content event.
+deployment, including any admission, GPU-copy or scheduling pauses.
 """
 
 import argparse
@@ -97,12 +97,12 @@ class Benchmark:
                            'decode_repetitions': 2, 'decode_concurrencies': [1, 4],
                            'visible_output_tokens_per_request': MAX, 'temperature': 0, 'thinking': False,
                            'aggregate_stream_decode': 'sum(completion_tokens)/(latest_last_content-earliest_first_content)',
-                           'aggregate_stream_scope': 'Actual client-observed content throughput; includes any synchronous-cache stalls or deferred final-content delivery',
+                           'aggregate_stream_scope': 'Actual client-observed content throughput; includes all scheduling, admission and GPU-copy pauses within the content interval',
                            'per_request_stream_decode': '(completion_tokens-1)/(last_content-first_content)',
                            'server_decode': 'Auxiliary per-request native logged tok/s; its t_end is frozen before that request\'s tail persistence; never sum these rates to derive aggregate throughput',
                            'prefill': 'actual_prompt_tokens/native_logged_prefill_seconds, cached_tokens=0',
                            'trailing_completion': 'HTTP/SSE completion minus last content; this is not a measurement of all persistence time because final content can itself be deferred',
-                           'native_emit_policy': 'Use the existing warmed deployment unchanged; no final-token-flush optimization is required or assumed'}}
+                           'native_emit_policy': 'Final content and completion precede optional asynchronous cache persistence; record the deployed binary identity'}}
         self.save()
 
     def save(self):

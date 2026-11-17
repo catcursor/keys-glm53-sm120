@@ -13,6 +13,7 @@ Configuration measured on November 17, 2026 (Asia/Shanghai). Deployment settings
 | CPU power limits | PL1 **170 W**, PL2 **220 W**, per socket |
 | Host memory | **94 GiB** visible to Linux |
 | Inference placement | NUMA node 0 CPU and memory; rank CPU sets `0-7`, `8-15`, `16-23`, `24-31` |
+| Native snapshot staging | **1 GiB pinned host memory per rank**, 4 GiB total; one pending snapshot per rank |
 | LMCache L1 | **32 GiB RAM**; CPUs `32-39`, NUMA memory node 1 |
 | LMCache L2 | **256 GiB disk**, under `/u2/cache/keys-glm53-lmcache-v2` |
 | ZFS ARC | **2 GiB maximum**, persisted across reboots |
@@ -20,38 +21,38 @@ Configuration measured on November 17, 2026 (Asia/Shanghai). Deployment settings
 
 ## Current performance
 
-Samples, timings and runtime identities are in [benchmark-300w.json](benchmark-300w.json); [benchmark_current.py](benchmark_current.py) contains the exact workload and timing procedure. All results below use the configuration above, including the two-tier cache and CUDA Graphs off.
+Samples, timings and runtime identities are in [benchmark-300w.json](benchmark-300w.json); [benchmark_current.py](benchmark_current.py) contains the exact workload and timing procedure. All results below use the asynchronous RAM/disk cache, CUDA Graphs off, and the hardware configuration above.
 
 ### Decode
 
-Each workload/concurrency combination runs twice, with `temperature=0`, thinking disabled and **2,048 visible output tokens per request**. Throughput is total visible tokens divided by the client-observed interval from the first streamed content to the last streamed content across the batch. The table reports the median of the two batches. This interval includes synchronous cache pauses that occur within it; it is not a sum of server-reported per-request speeds.
+Each workload/concurrency combination runs twice, with `temperature=0`, thinking disabled and **2,048 visible output tokens per request**. Throughput is total visible tokens divided by the client-observed interval from the first streamed content to the last streamed content across the batch. The table reports the median of the two batches. This interval includes any cache-related pauses that occur within it; it is not a sum of server-reported per-request speeds.
 
 | Workload | Concurrent requests | Runs (tok/s) | Median aggregate (tok/s) |
 | --- | ---: | ---: | ---: |
-| Literary prose | 1 | 80.8–81.9 | **81.3** |
-| Literary prose | 4 | 135.8–138.0 | **136.9** |
-| Python code | 1 | 117.2–118.1 | **117.6** |
-| Python code | 4 | 178.6–181.8 | **180.2** |
+| Literary prose | 1 | 80.7–80.8 | **80.7** |
+| Literary prose | 4 | 136.0–136.9 | **136.4** |
+| Python code | 1 | 117.8–118.2 | **118.0** |
+| Python code | 4 | 179.4–179.4 | **179.4** |
 
 ### Cold prefill
 
-Each tier runs twice with a distinct leading marker, **zero cached tokens**, and a verification code near the beginning of the prompt. Prefill speed is actual prompt tokens divided by the server's logged prefill duration. Both runs must return the exact expected code.
+Each tier runs twice with a distinct leading marker, **zero cached tokens**, and a verification code near the beginning of the prompt. Prefill speed is actual prompt tokens divided by the server's logged prefill duration. Both runs return the exact expected code. Total request time includes prefill, 256 output tokens and response completion; background cache persistence can continue afterward.
 
-| Prompt tier | Actual prompt tokens | Cold prefill range (tok/s) | Correct retrievals |
-| --- | ---: | ---: | ---: |
-| 16K | 16,085 | 3,732.0–3,758.2 | 2/2 |
-| 32K | 32,085 | 3,847.1–3,870.3 | 2/2 |
-| 66K | 66,084 | 3,866.8–3,871.4 | 2/2 |
+| Prompt tier | Actual prompt tokens | Cold prefill (tok/s) | Total request (s) | Correct |
+| --- | ---: | ---: | ---: | ---: |
+| 16K | 16,086 | 3,655.9–3,723.6 | 8.30–8.46 | 2/2 |
+| 32K | 32,086 | 3,838.0–3,842.6 | 12.16–12.25 | 2/2 |
+| 66K | 66,085 | 3,853.4–3,855.6 | 21.02–21.09 | 2/2 |
 
 The **1M context is a verified configuration and allocation**, not a full-1M-prompt performance or retrieval result. The pool is shared across requests; each request reserves its input plus its maximum output, and waits when the remaining pool cannot accommodate it.
 
 ## Serving and cache behavior
 
 - Four CUDA ranks serve model ID `model`; rank 0 exposes the API at `http://127.0.0.1:18992`.
-- GPU-resident checkpoints handle hot-prefix reuse. LMCache retains complete-prompt snapshots in RAM L1 and disk L2 for restoration after GPU eviction, reducing repeated prefill and time to first token.
-- Disk L2 uses synchronous write-through, bounded LRU eviction, atomic payload files, a persistent SQLite index and SHA256 checks. The cache server listens on loopback port `18553`. Restarting it clears L1 while retaining committed L2 entries.
-- Shared-KV snapshots include carry, output-head logits and DSpark state. Missing or damaged chunks cause a coordinated cold-prefill fallback. Saving snapshots can add completion latency.
-- The deployed configuration passed cold/GPU-hit/RAM-restore/disk-restore checks, four-request RAM and disk restores, and missing-chunk fallback checks with matching outputs ([validation record](cache-validation.json)). The backend also passed [11 focused tests](test_lmcache_tensorfold_server.py).
+- Responses finish before optional background cache uploads. Each rank has one **1 GiB pinned snapshot buffer**; busy or oversized snapshots are skipped. L2 writes use a bounded **512 MiB queue**, with backpressure confined to background workers.
+- GPU prefix reuse remains available during generation; external restoration and index publication run when no stream is active. Missing or damaged chunks fall back to cold prefill. Graceful shutdown drains L2 writes; crashes can lose pending writes.
+- The **1M inference context remains available**, while the snapshot cap limits which prefixes can be stored externally. GPU copies still consume bandwidth.
+- [Validation](async-cache-validation.json) passed 22 backend tests, native host tests, four-stream slot reuse and 66K RAM/disk restoration. All four new requests produced correct output while the completed 66K request was still uploading. The decode rerun matched all **20 prior outputs and token counts** (40,960 visible tokens); raw generated token IDs are not exposed by the API.
 
 See [DEPLOYMENT-180.md](DEPLOYMENT-180.md) for the native compatibility patch, NUMA settings, cache budgets and runtime locations. The current **1M / four-stream / L1+L2 deployment requires that native integration**; the generic launcher command below does not reproduce it by itself.
 

@@ -2,7 +2,8 @@
 
 This deployment keeps CUDA Graphs disabled, the accepted Scale4/Tail-PV AOT
 pack, a shared 1,000,000-token GPU KV pool, four concurrent streams, and DSpark.
-The hardware and cache settings below describe the deployment measured in README.
+The hardware settings below match README. The asynchronous cache integration and
+its passed integration checks are documented here.
 
 ## Host settings
 
@@ -21,11 +22,20 @@ The hardware and cache settings below describe the deployment measured in README
 ## Cache layout
 
 - RAM L1: 32 GiB of payload, bounded LRU.
-- Disk L2: 256 GiB of payload, bounded LRU and synchronous write-through,
+- Disk L2: 256 GiB of payload, bounded LRU with background write-back,
   under `/u2/cache/keys-glm53-lmcache-v2`.
+- Native snapshot staging: one preallocated 1 GiB pinned host buffer per rank,
+  4 GiB total, controlled by `TF_GLM53_LMCACHE_STAGE_MIB=1024`. Each rank allows
+  one pending snapshot; a busy stage or an oversized complete state is skipped.
+- L2 write queue: 512 MiB and at most 128 chunks, including the active write,
+  configured with `--write-queue-mib 512`. Payload references are immutable and
+  shared with L1. When full, the upload connection waits for capacity for at most
+  1 second (`--write-queue-wait-ms 1000`), releasing the RAM lock. GET and other
+  connections can continue. Only a timeout skips L2 while retaining the L1 copy;
+  `--write-queue-wait-ms 0` selects immediate skipping for overload tests.
 - The CPU-only cache service uses CPUs `32-39` and NUMA memory node 1, leaving
   node 0's memory available for model startup, GPU transfer buffers and ranks.
-  Its container limit is 36 GiB including Python, index and transfer overhead;
+  Its container limit is 36 GiB including Python, index, queue and transfer overhead;
   swap is disabled for this container.
 - The server listens only on `127.0.0.1:18553`.
 - Each rank uses a 64 GiB learned-state index budget. The four rank shards
@@ -34,10 +44,17 @@ The hardware and cache settings below describe the deployment measured in README
   artifacts were retained.
 
 `lmcache_tensorfold_server.py` implements the existing native LMCache wire
-protocol with independent RAM/disk budgets. Atomic payload files, a SQLite
+protocol with independent RAM/disk budgets. PUT inserts an immutable chunk into
+L1 and queues an L2 write, so its acknowledgement promises availability, not
+durability. Disk I/O runs outside the RAM lock. Atomic payload files, a SQLite
 index and SHA256 checks prevent incomplete/corrupt payloads from being returned
-as valid cached data. Committed L2 data survives server restarts. An abrupt stop
-may lose recent LRU ordering, but not an already committed payload.
+as valid cached data. Committed L2 data survives server restarts. Graceful
+cache-server shutdown drains the write queue; a forced exit can lose queued
+writes and recent LRU ordering. Before a persistence check, wait for
+`l2_pending_bytes=0`, `l2_waiting_puts=0` and `l2_retired_chunks=0`, then verify no
+write/cleanup errors or backpressure timeouts. The wait applies to native
+background upload workers, not the inference scheduler. Queue, L1 and container
+memory budgets remain unchanged.
 
 The native compatibility patch is
 `patches/tensorfold-sm120-multi-lmcache-v2.patch`. It is relative to the production
@@ -51,9 +68,18 @@ Protocol or slot-preparation failures stop the ranks together instead of allowin
 their states to diverge. Strict prompt extensions reuse an external snapshot only
 when the original prefill chunk boundaries are compatible.
 
-Cache storage is synchronous and can add request-completion latency. This feature
-targets repeated prompt prefill/TTFT, and is not a claim of faster per-token decode.
-GPU-resident hot prefixes continue to use the native GPU prefix cache.
+Finished responses emit DONE before optional snapshot work. Device-to-host copies
+are queued on the existing compute stream, ordering them before later slot reuse.
+The worker waits for the ready event and uploads CPU bytes; it does not access
+live slots or the learned index. Index publication runs only while the scheduler
+is idle. Admission while another stream is active skips external restoration;
+GPU-resident hot-prefix reuse continues to work.
+
+Asynchronous work still consumes GPU copy bandwidth, CPU time and memory. The
+1 GiB per-rank snapshot cap does not reduce the 1M inference context, but it does
+mean that not every long prefix can be cached externally. Busy/oversized snapshots
+and L2 backpressure timeouts are best-effort skips, not inference failures. This feature
+targets repeated prefill/TTFT and makes no claim of zero overhead.
 
 ## Runtime locations
 
@@ -72,15 +98,47 @@ placement supplies the NUMA binding.
 
 ## Validation
 
-The tiered backend passed 11 focused tests in the actual deployment image,
-including native wire messages, restart recovery, L1/L2 eviction, corruption,
-failed overwrite and concurrent rank writes. End-to-end checks passed for cold
-prefill, GPU reuse, RAM restore, disk restore, four concurrent RAM/disk restores,
-and a deliberately missing chunk on one rank followed by cold fallback and repair.
-Restored text and token counts matched the accepted native baseline. The API does
-not expose raw generated token IDs, so this is not a claim of raw token-ID parity.
+The asynchronous tiered backend passed 22 focused tests in the actual deployment
+image, covering native wire messages, restart recovery, eviction, corruption,
+bounded queues including active writes, slow-disk RAM responsiveness, concurrent
+overwrite/read/remove races, bounded backpressure and close-time draining. The
+native `test-cuda-host`, `test-server-cpu` and `test-glm53` build targets also
+passed; the fail-fast build exited zero with the deployed binary hash.
+
+[cache-validation.json](cache-validation.json) is the preceding synchronous-cache
+baseline: cold prefill, GPU reuse, RAM/disk restoration, four concurrent restores
+and missing-chunk fallback passed with matching text and token counts. It does
+not establish correctness of the new asynchronous native integration. The API
+does not expose raw generated token IDs, so these checks do not claim token-ID parity.
+
+The asynchronous integration passed the checks summarized in
+[async-cache-validation.json](async-cache-validation.json). Its 66,084-token
+fixture and 256-token golden output come from the existing accepted
+`cold-66k-r1` measurement; the four short-request goldens are unchanged. All seven
+responses across cold output, four concurrent requests, RAM restoration and disk
+restoration matched the exact golden text and prompt/completion/total counts.
+
+The complete decode rerun also matched the preceding run for all 20 requests
+across 8 batches: identical request hashes, exact generated text, content hashes
+and token counts, with 2,048 visible tokens per request and 40,960 total. Matching
+uses workload, concurrency, repetition and lane. This is additional long-output
+parity evidence and makes no token-ID parity or performance-improvement claim.
+
+The 66K request's final content arrived before DONE, which reached the client
+7.6235 seconds before all ranks finished uploading. Four new requests became active and produced
+correct output during that upload. Each rank staged 959,510,368 bytes within its
+1 GiB cap, with one pending snapshot and four observed busy skips. The L2 queue
+reached its 512 MiB bound without overflow, backpressure timeouts or I/O errors.
+
+GPU-prefix flushes forced restoration from RAM and, after restarting only the
+backend, disk. Both restored all 66,084 prompt tokens with exact golden output;
+each read 916 chunks through the expected tier. The disk check verified a new
+backend instance with empty L1. Pending writes, waiting PUTs and retired chunks
+were zero before the restart. The final audit confirmed unchanged GPU power
+limits, CPU power limits, NUMA placement and runtime environment.
 
 The deployed native SHA256 is
-`f0d2d178c3c760b814d57c600f3a02c684e7dcd3a9e5e7b3c8e1ede23b1bbaeb`.
-Client stream throughput includes any synchronous cache pauses; native per-request
-decode throughput is recorded separately in the benchmark evidence.
+`137526c8838494d2a30ede67b918a324a8ee5ae02d693d5e55287077e4bed123`.
+The README speed figures were rerun on this asynchronous build. Client stream
+throughput includes pauses inside the measured first-to-last-content interval;
+native per-request decode throughput is recorded separately in the evidence.
